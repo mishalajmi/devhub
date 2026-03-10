@@ -27,7 +27,9 @@ pub fn init(db_path: &Path) -> Result<Connection> {
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 /// Row representation of the `projects` table.
+/// Serializes to camelCase JSON to match the TypeScript `Project` interface.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectRow {
     pub id: String,
     pub name: String,
@@ -97,7 +99,9 @@ pub fn delete_project(conn: &Connection, id: &str) -> Result<()> {
 // ─── Agent Sessions ───────────────────────────────────────────────────────────
 
 /// Row representation of the `agent_sessions` table.
+/// Serializes to camelCase JSON to match the TypeScript `AgentSession` interface.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentSessionRow {
     pub id: String,
     pub project_id: String,
@@ -168,7 +172,9 @@ pub fn delete_agent_session(conn: &Connection, id: &str) -> Result<()> {
 // ─── MCP Servers ─────────────────────────────────────────────────────────────
 
 /// Row representation of the `mcp_servers` table.
+/// Serializes to camelCase JSON to match the TypeScript `McpServer` interface.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpServerRow {
     pub id: String,
     pub project_id: String,
@@ -239,7 +245,9 @@ pub fn delete_mcp_server(conn: &Connection, id: &str) -> Result<()> {
 // ─── Resources ────────────────────────────────────────────────────────────────
 
 /// Row representation of the `project_resources` table.
+/// Serializes to camelCase JSON to match the TypeScript `ProjectResource` interface.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceRow {
     pub id: String,
     pub project_id: String,
@@ -294,7 +302,9 @@ pub fn delete_resource(conn: &Connection, id: &str) -> Result<()> {
 // ─── Skills ───────────────────────────────────────────────────────────────────
 
 /// Row representation of the `skills` table.
+/// Serializes to camelCase JSON to match the TypeScript `Skill` interface.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkillRow {
     pub id: String,
     pub project_id: Option<String>,

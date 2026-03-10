@@ -6,7 +6,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateResourceInput {
     pub project_id: String,
     pub resource_type: String,

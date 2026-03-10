@@ -1,11 +1,14 @@
-import { useState } from "react";
+import * as React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/sidebar";
 import { StatusBar } from "@/components/layout/status-bar";
 import { ProjectTabs, TabContent, type ProjectTab } from "@/components/layout/project-tabs";
+import { AddProjectDialog } from "@/components/projects/add-project-dialog";
+import { DeleteProjectDialog } from "@/components/projects/delete-project-dialog";
 import { useProjectsStore } from "@/stores/projects.store";
-
+import { useProjects } from "@/hooks/useProject";
 import { FolderOpen, Bot } from "lucide-react";
+import type { Project } from "@/types/project";
 
 // Placeholder panels — will be replaced in later chunks
 function PlaceholderPanel({ label }: { label: string }) {
@@ -18,14 +21,16 @@ function PlaceholderPanel({ label }: { label: string }) {
 
 export function AppShell() {
   const { projects, selectedProjectId } = useProjectsStore();
-  const [activeTab, setActiveTab] = useState<ProjectTab>("agents");
+  const [activeTab, setActiveTab] = React.useState<ProjectTab>("agents");
+  const [addDialogOpen, setAddDialogOpen] = React.useState(false);
+  const [projectToDelete, setProjectToDelete] = React.useState<Project | null>(null);
+
+  // Load projects on mount via TanStack Query — syncs to Zustand store
+  useProjects();
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
-  const handleAddProject = () => {
-    // TODO: open folder picker dialog (Chunk 6)
-  };
-
+  const handleAddProject = () => setAddDialogOpen(true);
   const handleOpenSettings = () => {
     // TODO: open settings dialog (Chunk 28)
   };
@@ -34,7 +39,11 @@ export function AppShell() {
     <TooltipProvider delayDuration={400}>
       <div className="flex h-screen w-screen overflow-hidden bg-background">
         {/* Sidebar */}
-        <Sidebar onAddProject={handleAddProject} onOpenSettings={handleOpenSettings} />
+        <Sidebar
+          onAddProject={handleAddProject}
+          onOpenSettings={handleOpenSettings}
+          onDeleteProject={setProjectToDelete}
+        />
 
         {/* Main content area */}
         <main className="flex flex-col flex-1 min-w-0 overflow-hidden">
@@ -96,6 +105,18 @@ export function AppShell() {
         {/* Status bar */}
         <StatusBar />
       </div>
+
+      {/* Add project dialog */}
+      <AddProjectDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+      />
+
+      {/* Delete project confirmation dialog */}
+      <DeleteProjectDialog
+        project={projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+      />
     </TooltipProvider>
   );
 }

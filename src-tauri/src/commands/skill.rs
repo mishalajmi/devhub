@@ -6,7 +6,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateSkillInput {
     pub project_id: Option<String>,
     pub title: String,
@@ -14,7 +16,9 @@ pub struct CreateSkillInput {
     pub tags: Option<Vec<String>>,
 }
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateSkillInput {
     pub id: String,
     pub title: Option<String>,
