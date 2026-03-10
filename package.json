@@ -50,6 +50,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "eslint-plugin-react": "^7.37.5",
     "postcss": "^8.5.8",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"

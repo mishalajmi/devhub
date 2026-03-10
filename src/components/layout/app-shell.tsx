@@ -7,6 +7,8 @@ import { AddProjectDialog } from "@/components/projects/add-project-dialog";
 import { DeleteProjectDialog } from "@/components/projects/delete-project-dialog";
 import { useProjectsStore } from "@/stores/projects.store";
 import { useProjects } from "@/hooks/useProject";
+import { useProjectWatcher } from "@/hooks/useProjectWatcher";
+
 import { FolderOpen, Bot } from "lucide-react";
 import type { Project } from "@/types/project";
 
@@ -27,6 +29,10 @@ export function AppShell() {
 
   // Load projects on mount via TanStack Query — syncs to Zustand store
   useProjects();
+
+  // Activate/deactivate the Rust file watcher when the selected project changes
+  // and reactively refresh project indicators on FS events.
+  useProjectWatcher();
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
