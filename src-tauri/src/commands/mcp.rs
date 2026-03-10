@@ -6,7 +6,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateMcpServerInput {
     pub project_id: String,
     pub name: String,
@@ -15,8 +17,10 @@ pub struct CreateMcpServerInput {
     pub env: Option<std::collections::HashMap<String, String>>,
 }
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateMcpServerInput {
     pub id: String,
     pub name: Option<String>,

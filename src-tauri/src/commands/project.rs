@@ -7,13 +7,17 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateProjectInput {
     pub name: String,
     pub root_path: String,
 }
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateProjectInput {
     pub id: String,
     pub name: Option<String>,
