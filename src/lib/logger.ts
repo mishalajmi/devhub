@@ -11,7 +11,6 @@ function emit(entry: LogEntry) {
   // In dev, write to the browser console (non-polluting path)
   const prefix = `[${entry.level.toUpperCase()}] [${entry.service}]`;
   if (entry.level === "error") {
-    // eslint-disable-next-line no-restricted-syntax
     window?.console?.error?.(`${prefix} ${entry.message}`, entry.extra ?? "");
   }
   // In production builds, forward to Tauri log plugin if available

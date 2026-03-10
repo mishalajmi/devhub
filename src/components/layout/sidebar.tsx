@@ -1,16 +1,19 @@
-import { FolderOpen, Plus, Settings, Bot, Layers } from "lucide-react";
+import * as React from "react";
+import { FolderOpen, Plus, Settings, Bot, Layers, GitBranch, Trash2 } from "lucide-react";
 import { cn, truncatePath } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProjectsStore } from "@/stores/projects.store";
+import type { Project } from "@/types/project";
 
 interface SidebarProps {
   onAddProject: () => void;
   onOpenSettings: () => void;
+  onDeleteProject: (project: Project) => void;
 }
 
-export function Sidebar({ onAddProject, onOpenSettings }: SidebarProps) {
+export function Sidebar({ onAddProject, onOpenSettings, onDeleteProject }: SidebarProps) {
   const { projects, selectedProjectId, selectProject } = useProjectsStore();
 
   return (
@@ -49,48 +52,13 @@ export function Sidebar({ onAddProject, onOpenSettings }: SidebarProps) {
         ) : (
           <ul className="flex flex-col gap-0.5 pb-2">
             {projects.map((project) => (
-              <li key={project.id}>
-                <button
-                  onClick={() => selectProject(project.id)}
-                  className={cn(
-                    "w-full text-left rounded px-2 py-1.5 transition-colors group",
-                    selectedProjectId === project.id
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <FolderOpen
-                      className={cn(
-                        "h-3.5 w-3.5 shrink-0",
-                        selectedProjectId === project.id
-                          ? "text-primary"
-                          : "text-muted-foreground group-hover:text-foreground"
-                      )}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium truncate">{project.name}</p>
-                      <p className="text-2xs text-muted-foreground truncate">
-                        {truncatePath(project.rootPath, 2)}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Project indicators */}
-                  <div className="flex items-center gap-1 mt-1 ml-5">
-                    {project.hasGit && (
-                      <span className="text-2xs text-muted-foreground/60">git</span>
-                    )}
-                    {project.hasDockerCompose && (
-                      <span className="text-2xs text-muted-foreground/60">docker</span>
-                    )}
-                    {project.gitBranch && (
-                      <span className="text-2xs text-muted-foreground/60 truncate">
-                        {project.gitBranch}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </li>
+              <ProjectItem
+                key={project.id}
+                project={project}
+                isSelected={selectedProjectId === project.id}
+                onSelect={() => selectProject(project.id)}
+                onDelete={() => onDeleteProject(project)}
+              />
             ))}
           </ul>
         )}
@@ -114,5 +82,93 @@ export function Sidebar({ onAddProject, onOpenSettings }: SidebarProps) {
         </div>
       </div>
     </aside>
+  );
+}
+
+// ─── Project list item ────────────────────────────────────────────────────────
+
+interface ProjectItemProps {
+  project: Project;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}
+
+function ProjectItem({ project, isSelected, onSelect, onDelete }: ProjectItemProps) {
+  const [hovered, setHovered] = React.useState(false);
+
+  return (
+    <li>
+      <div
+        className={cn(
+          "relative w-full rounded transition-colors group",
+          isSelected ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        )}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <button
+          onClick={onSelect}
+          className="w-full text-left px-2 py-1.5"
+        >
+          <div className="flex items-center gap-2">
+            <FolderOpen
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <div className="min-w-0 pr-5">
+              <p className="text-xs font-medium truncate">{project.name}</p>
+              <p className="text-2xs text-muted-foreground truncate">
+                {truncatePath(project.rootPath, 2)}
+              </p>
+            </div>
+          </div>
+
+          {/* Indicator badges */}
+          <div className="flex flex-wrap items-center gap-1 mt-1 ml-5">
+            {project.gitBranch && (
+              <span className="inline-flex items-center gap-0.5 text-2xs text-primary/70 truncate max-w-[100px]">
+                <GitBranch className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{project.gitBranch}</span>
+              </span>
+            )}
+            {project.hasDockerCompose && !project.gitBranch && (
+              <span className="text-2xs text-muted-foreground/60">docker</span>
+            )}
+            {project.hasDockerCompose && project.gitBranch && (
+              <span className="text-2xs text-muted-foreground/60">· docker</span>
+            )}
+            {project.hasEnvFile && (
+              <span className="text-2xs text-muted-foreground/60">· .env</span>
+            )}
+          </div>
+        </button>
+
+        {/* Delete button — visible on hover */}
+        {hovered && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className={cn(
+                  "absolute right-1 top-1/2 -translate-y-1/2",
+                  "flex items-center justify-center h-5 w-5 rounded",
+                  "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                  "transition-colors"
+                )}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Delete project</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </li>
   );
 }
