@@ -28,3 +28,11 @@ export interface UpdateProjectInput {
   id: string;
   name?: string;
 }
+
+/** A node in the directory tree returned by list_dir_tree */
+export interface DirNode {
+  name: string;
+  path: string;
+  isDir: boolean;
+  children: DirNode[];
+}

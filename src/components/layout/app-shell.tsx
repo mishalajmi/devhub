@@ -6,19 +6,15 @@ import { ProjectTabs, TabContent, type ProjectTab } from "@/components/layout/pr
 import { AddProjectDialog } from "@/components/projects/add-project-dialog";
 import { DeleteProjectDialog } from "@/components/projects/delete-project-dialog";
 import { useProjectsStore } from "@/stores/projects.store";
+import { AgentsPane } from "@/components/projects/agents-pane";
+import { ResourcesPane } from "@/components/projects/resources-pane";
+import { McpPane } from "@/components/projects/mcp-pane";
+import { SkillsPane } from "@/components/projects/skills-pane";
+import { CodePane } from "@/components/projects/code-pane";
 import { useProjects } from "@/hooks/useProject";
 import { useProjectWatcher } from "@/hooks/useProjectWatcher";
 import { FolderOpen, Bot } from "lucide-react";
 import type { Project } from "@/types/project";
-
-// Placeholder panels — will be replaced in later chunks
-function PlaceholderPanel({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-      {label} panel — coming soon
-    </div>
-  );
-}
 
 export function AppShell() {
   const { projects, selectedProjectId } = useProjectsStore();
@@ -76,19 +72,22 @@ export function AppShell() {
               <div className="flex-1 overflow-hidden">
                 <ProjectTabs activeTab={activeTab} onTabChange={setActiveTab}>
                   <TabContent value="agents" className="h-full">
-                    <PlaceholderPanel label="Agents" />
+                    <AgentsPane projectId={selectedProject.id} />
                   </TabContent>
                   <TabContent value="resources" className="h-full">
-                    <PlaceholderPanel label="Resources" />
+                    <ResourcesPane projectId={selectedProject.id} />
                   </TabContent>
                   <TabContent value="mcp" className="h-full">
-                    <PlaceholderPanel label="MCP Servers" />
+                    <McpPane projectId={selectedProject.id} />
                   </TabContent>
                   <TabContent value="skills" className="h-full">
-                    <PlaceholderPanel label="Skills" />
+                    <SkillsPane projectId={selectedProject.id} />
                   </TabContent>
                   <TabContent value="code" className="h-full">
-                    <PlaceholderPanel label="Code" />
+                    <CodePane
+                      projectId={selectedProject.id}
+                      rootPath={selectedProject.rootPath}
+                    />
                   </TabContent>
                 </ProjectTabs>
               </div>

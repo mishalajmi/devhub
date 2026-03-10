@@ -5,7 +5,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult } from "@/types/project";
+import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult, DirNode } from "@/types/project";
 import type { AgentSession, CreateAgentSessionInput } from "@/types/agent";
 import type { McpServer, CreateMcpServerInput, UpdateMcpServerInput } from "@/types/mcp";
 import type { ProjectResource, CreateResourceInput } from "@/types/resource";
@@ -36,6 +36,10 @@ export const deleteProject = (id: string): Promise<void> =>
 /** Scan a folder path and return detected metadata */
 export const scanProjectFolder = (path: string): Promise<FolderScanResult> =>
   invoke("scan_project_folder", { path });
+
+/** List the directory tree of a project root (up to 6 levels deep) */
+export const listDirTree = (rootPath: string): Promise<DirNode[]> =>
+  invoke("list_dir_tree", { rootPath });
 
 // ─── Dialog ───────────────────────────────────────────────────────────────────
 
