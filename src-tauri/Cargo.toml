@@ -2,7 +2,7 @@
 name = "devhub"
 version = "0.1.0"
 description = "DevHub — Developer Control Plane"
-authors = ["you"]
+authors = ["mishalajmi.dev@gmail.com"]
 edition = "2021"
 
 [lib]
