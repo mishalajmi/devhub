@@ -3,12 +3,39 @@ export type ResourceType = "docker" | "service" | "database" | "cloud" | "env";
 export interface ProjectResource {
   id: string;
   projectId: string;
-  type: ResourceType;
+  resourceType: ResourceType;
   name: string;
-  config: ResourceConfig;
+  configJson: string;
   createdAt: string;
   // Live status — not persisted, polled at runtime
   liveStatus?: ResourceLiveStatus;
+}
+
+export interface DockerResourceConfig {
+  containerName?: string;
+  composePath?: string;
+}
+
+export interface ServiceResourceConfig {
+  port: number;
+  processName?: string;
+}
+
+export interface DatabaseResourceConfig {
+  connectionString: string;
+  dbType: "postgres" | "mysql" | "sqlite" | "redis" | "mongodb";
+}
+
+export interface CloudResourceConfig {
+  provider: "aws" | "gcp" | "azure";
+  profile?: string;
+  region?: string;
+}
+
+export interface EnvResourceConfig {
+  filePath?: string;
+  key?: string;
+  value?: string;
 }
 
 export type ResourceConfig =
@@ -17,36 +44,6 @@ export type ResourceConfig =
   | DatabaseResourceConfig
   | CloudResourceConfig
   | EnvResourceConfig;
-
-export interface DockerResourceConfig {
-  type: "docker";
-  containerName?: string;
-  composePath?: string;
-}
-
-export interface ServiceResourceConfig {
-  type: "service";
-  port: number;
-  processName?: string;
-}
-
-export interface DatabaseResourceConfig {
-  type: "database";
-  connectionString: string;
-  dbType: "postgres" | "mysql" | "sqlite" | "redis" | "mongodb";
-}
-
-export interface CloudResourceConfig {
-  type: "cloud";
-  provider: "aws" | "gcp" | "azure";
-  profile?: string;
-  region?: string;
-}
-
-export interface EnvResourceConfig {
-  type: "env";
-  filePath: string;
-}
 
 export interface ResourceLiveStatus {
   healthy: boolean;
@@ -57,7 +54,13 @@ export interface ResourceLiveStatus {
 
 export interface CreateResourceInput {
   projectId: string;
-  type: ResourceType;
+  resourceType: ResourceType;
   name: string;
-  config: ResourceConfig;
+  configJson: string;
+}
+
+export interface UpdateResourceInput {
+  id: string;
+  name?: string;
+  configJson?: string;
 }

@@ -13,7 +13,7 @@ pub struct CreateResourceInput {
     pub project_id: String,
     pub resource_type: String,
     pub name: String,
-    pub config: serde_json::Value,
+    pub config_json: String,
 }
 
 /// List all resources for a project.
@@ -32,13 +32,12 @@ pub fn create_resource(
     input: CreateResourceInput,
     state: tauri::State<AppState>,
 ) -> Result<db::ResourceRow, String> {
-    let config_json = serde_json::to_string(&input.config).map_err(|e| e.to_string())?;
     let row = db::ResourceRow {
         id: Uuid::new_v4().to_string(),
         project_id: input.project_id,
         resource_type: input.resource_type,
         name: input.name,
-        config_json,
+        config_json: input.config_json,
         created_at: Utc::now().to_rfc3339(),
     };
     let conn = state.db.lock().map_err(|e| e.to_string())?;

@@ -8,7 +8,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult, DirNode } from "@/types/project";
 import type { AgentSession, CreateAgentSessionInput } from "@/types/agent";
 import type { McpServer, CreateMcpServerInput, UpdateMcpServerInput } from "@/types/mcp";
-import type { ProjectResource, CreateResourceInput } from "@/types/resource";
+import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@/types/resource";
 import type { Skill, CreateSkillInput, UpdateSkillInput } from "@/types/skill";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -111,6 +111,10 @@ export const listResources = (projectId: string): Promise<ProjectResource[]> =>
 /** Create a resource entry */
 export const createResource = (input: CreateResourceInput): Promise<ProjectResource> =>
   invoke("create_resource", { input });
+
+/** Update a resource entry */
+export const updateResource = (input: UpdateResourceInput): Promise<ProjectResource> =>
+  invoke("update_resource", { input });
 
 /** Delete a resource entry */
 export const deleteResource = (id: string): Promise<void> =>

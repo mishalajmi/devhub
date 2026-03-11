@@ -68,10 +68,10 @@ function ResourceRow({ resource, onDelete }: ResourceRowProps) {
         "hover:border-border/80 transition-colors group"
       )}
     >
-      {renderResourceIcon(resource.type)}
+      {renderResourceIcon(resource.resourceType)}
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-foreground truncate">{resource.name}</p>
-        <p className="text-2xs text-muted-foreground">{resourceLabel(resource.type)}</p>
+        <p className="text-2xs text-muted-foreground">{resourceLabel(resource.resourceType)}</p>
       </div>
       {resource.liveStatus && (
         <Badge variant={healthy ? "running" : "error"}>
