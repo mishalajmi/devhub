@@ -1,3 +1,4 @@
+import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { Bot, Database, Server, Sparkles, FolderGit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,4 +52,14 @@ export function ProjectTabs({ activeTab, onTabChange, children }: ProjectTabsPro
   );
 }
 
-export const TabContent = TabsPrimitive.Content;
+export function TabContent({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>) {
+  return (
+    <TabsPrimitive.Content
+      className={cn("h-full overflow-hidden data-[state=inactive]:hidden", className)}
+      {...props}
+    />
+  );
+}

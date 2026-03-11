@@ -47,7 +47,7 @@ export function AppShell() {
         />
 
         {/* Main content area */}
-        <main className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <main className="flex flex-col flex-1 min-w-0 overflow-hidden h-full">
           {selectedProject ? (
             <>
               {/* Project header */}
@@ -104,10 +104,9 @@ export function AppShell() {
               </div>
             </div>
           )}
+          {/* Status bar */}
+          <StatusBar />
         </main>
-
-        {/* Status bar */}
-        <StatusBar />
       </div>
 
       {/* Add project dialog */}

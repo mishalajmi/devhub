@@ -14,7 +14,7 @@
  *   { id: string, ok: false, error: string }
  */
 
-import { opencodeAdapter } from "./adapters/opencode.js";
+import { opencodeAdapter } from "./adapters/opencode";
 import { claudeAdapter } from "./adapters/claude.js";
 
 type IncomingMessage = {

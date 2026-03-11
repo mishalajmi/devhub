@@ -296,3 +296,11 @@ chore(shell): configure Tailwind dark theme tokens
 | 27 | Polish | Status bar + health indicators |
 | 28 | Polish | App settings |
 | 29 | Polish | Onboarding flow |
+| 30 | Agent Sandboxing | Sandbox configuration model (SQLite + types) |
+| 31 | Agent Sandboxing | Filesystem sandboxing — allowed paths enforcement |
+| 32 | Agent Sandboxing | Network sandboxing — per-session network access flag |
+| 33 | Agent Sandboxing | Env var scoping — allowlist, credential redaction |
+| 34 | Agent Sandboxing | Sandbox UI — session creation dialog + badges |
+| 35 | Project Init | Init backend — `init_project` command + templates |
+| 36 | Project Init | Init dialog UI — multi-step new project flow |
+| 37 | Project Init | Template scaffolding details (node/rust/python/.gitignore) |
