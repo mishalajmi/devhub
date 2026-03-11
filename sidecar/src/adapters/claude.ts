@@ -9,13 +9,16 @@
  * Streaming: each message/delta is emitted via stdout as an event.
  * The request resolves immediately with { started: true }; the frontend
  * receives streaming data via Tauri event listeners watching for
- * { event: "claude:message", payload: { requestId, sessionId, message } }
+ * sidecar://event payloads of the form:
+ *   { type: "claude:session:init",  sessionId, claudeSessionId }
+ *   { type: "claude:message",       sessionId, message }
+ *   { type: "claude:session:done",  sessionId }
+ *   { type: "claude:session:error", sessionId, error }
  */
 
 import { emit } from "../index.js";
 
-// Dynamic import — @anthropic-ai/claude-agent-sdk may not be installed yet
-// (Chunk 12 will wire this fully). For now we stub the integration.
+// Dynamic import — @anthropic-ai/claude-agent-sdk may not be installed yet.
 type QueryFn = (options: {
   prompt: string;
   options?: Record<string, unknown>;
@@ -37,25 +40,32 @@ async function getQueryFn(): Promise<QueryFn> {
   }
 }
 
-/** Active AbortControllers keyed by requestId for abort support */
+/** Active AbortControllers keyed by DevHub sessionId for abort support */
 const activeRequests = new Map<string, AbortController>();
 
+/**
+ * Run a Claude session, streaming events back to the Tauri frontend.
+ *
+ * @param sessionId      - The DevHub agent session ID (used as correlation key)
+ * @param prompt         - The user prompt to send
+ * @param options        - Claude SDK options (mcpServers, resume, model, etc.)
+ */
 async function runSession(
-  requestId: string,
+  sessionId: string,
   prompt: string,
   options: Record<string, unknown>
 ): Promise<void> {
   const query = await getQueryFn();
   const controller = new AbortController();
-  activeRequests.set(requestId, controller);
+  activeRequests.set(sessionId, controller);
 
-  let sessionId: string | undefined;
+  let claudeSessionId: string | undefined;
 
   try {
     for await (const message of query({ prompt, options })) {
       if (controller.signal.aborted) break;
 
-      // Capture session ID from init message
+      // Capture the Claude-native session ID from the system init message
       if (
         typeof message === "object" &&
         message !== null &&
@@ -65,33 +75,46 @@ async function runSession(
         (message as { subtype: string }).subtype === "init" &&
         "session_id" in message
       ) {
-        sessionId = (message as { session_id: string }).session_id;
-        emit("claude:session:init", { requestId, sessionId });
+        claudeSessionId = (message as { session_id: string }).session_id;
+        emit("claude:session:init", {
+          type: "claude:session:init",
+          sessionId,
+          claudeSessionId,
+        });
       }
 
-      emit("claude:message", { requestId, sessionId, message });
+      emit("claude:message", {
+        type: "claude:message",
+        sessionId,
+        message,
+      });
     }
 
-    emit("claude:session:done", { requestId, sessionId });
+    emit("claude:session:done", {
+      type: "claude:session:done",
+      sessionId,
+      claudeSessionId,
+    });
   } catch (err) {
     emit("claude:session:error", {
-      requestId,
+      type: "claude:session:error",
       sessionId,
       error: err instanceof Error ? err.message : String(err),
     });
   } finally {
-    activeRequests.delete(requestId);
+    activeRequests.delete(sessionId);
   }
 }
 
 export async function claudeAdapter(
   type: string,
   payload: Record<string, unknown>,
-  requestId: string
+  _requestId: string
 ): Promise<unknown> {
   switch (type) {
     case "claude:session:create": {
-      const { prompt, mcpServers, allowedTools, model, workingDir } = payload as {
+      const { sessionId, prompt, mcpServers, allowedTools, model, workingDir } = payload as {
+        sessionId: string;
         prompt: string;
         mcpServers?: Record<string, unknown>;
         allowedTools?: string[];
@@ -105,39 +128,40 @@ export async function claudeAdapter(
       if (model) options.model = model;
       if (workingDir) options.cwd = workingDir;
 
-      // Fire and forget — streams events back
-      runSession(requestId, prompt, options).catch((err) => {
+      // Fire and forget — streams events back via stdout
+      runSession(sessionId, prompt, options).catch((err) => {
         process.stderr.write(`[claude] session error: ${err}\n`);
       });
 
-      return { started: true, requestId };
+      return { started: true, sessionId };
     }
 
     case "claude:session:resume": {
-      const { sessionId, prompt, mcpServers, allowedTools, model } = payload as {
+      const { sessionId, claudeSessionId, prompt, mcpServers, allowedTools, model } = payload as {
         sessionId: string;
+        claudeSessionId: string;
         prompt: string;
         mcpServers?: Record<string, unknown>;
         allowedTools?: string[];
         model?: string;
       };
 
-      const options: Record<string, unknown> = { resume: sessionId };
+      const options: Record<string, unknown> = { resume: claudeSessionId };
       if (mcpServers) options.mcpServers = mcpServers;
       if (allowedTools) options.allowedTools = allowedTools;
       if (model) options.model = model;
 
-      runSession(requestId, prompt, options).catch((err) => {
+      runSession(sessionId, prompt, options).catch((err) => {
         process.stderr.write(`[claude] resume error: ${err}\n`);
       });
 
-      return { started: true, requestId, sessionId };
+      return { started: true, sessionId, claudeSessionId };
     }
 
     case "claude:session:abort": {
-      const { targetRequestId } = payload as { targetRequestId: string };
-      activeRequests.get(targetRequestId)?.abort();
-      activeRequests.delete(targetRequestId);
+      const { sessionId } = payload as { sessionId: string };
+      activeRequests.get(sessionId)?.abort();
+      activeRequests.delete(sessionId);
       return { aborted: true };
     }
 

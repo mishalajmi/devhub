@@ -54,3 +54,32 @@ export interface SidecarMessage {
   sessionId?: string;
   payload: unknown;
 }
+
+// ─── Claude Types ─────────────────────────────────────────────────────────────
+
+export type ClaudeEventType =
+  | "claude:session:init"
+  | "claude:message"
+  | "claude:session:done"
+  | "claude:session:error";
+
+export interface ClaudeEvent {
+  type: ClaudeEventType;
+  sessionId: string;
+  claudeSessionId?: string;
+  message?: ClaudeMessage;
+  error?: string;
+}
+
+export interface ClaudeMessage {
+  role: "assistant" | "user" | "tool";
+  content: string;
+  timestamp: string;
+}
+
+export interface McpServerConfig {
+  name: string;
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+}
