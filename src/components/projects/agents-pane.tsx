@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Bot, Plus, Loader2, Trash2, Wifi, WifiOff, RefreshCw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import type { AgentSession, OpenCodeInstance, OpenCodeSession } from "@/types/ag
 
 interface AgentsPaneProps {
   projectId: string;
+  isActive?: boolean;
 }
 
 // ─── Instance header ──────────────────────────────────────────────────────────
@@ -214,28 +214,9 @@ interface DeleteOpenCodeSessionVars {
   ocSessionId: string;
 }
 
-export function AgentsPane({ projectId }: AgentsPaneProps) {
-  // Track whether this pane is actually visible so we don't fire 100 port-scan
-  // fetches on every project selection regardless of which tab is active.
-  // Radix Tabs keeps the pane in the DOM (hidden via CSS), so we use an
-  // IntersectionObserver to detect true visibility.
-  const paneRef = React.useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = React.useState(false);
-
-  React.useEffect(() => {
-    const el = paneRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
+export function AgentsPane({ projectId, isActive = false }: AgentsPaneProps) {
   const { data: instances, isLoading: isDiscovering, refetch: rediscover } =
-    useOpenCodeInstances(projectId, isVisible);
+    useOpenCodeInstances(projectId, isActive);
 
   const activeInstance: OpenCodeInstance | null = instances?.[0] ?? null;
 
@@ -284,7 +265,7 @@ export function AgentsPane({ projectId }: AgentsPaneProps) {
   const activeOcSessionId = activeDbSession?.externalId ?? null;
 
   return (
-    <div ref={paneRef} className="flex flex-col h-full">
+    <div className="flex flex-col h-full">
       {/* SSE stream watcher — mounts only when there's an active session */}
       {activeInstance && activeOcSessionId && (
         <EventStreamWatcher
