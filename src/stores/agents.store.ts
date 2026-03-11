@@ -1,22 +1,26 @@
 import { create } from "zustand";
-import type { AgentSession } from "@/types/agent";
+import type { AgentSession, OpenCodeInstance } from "@/types/agent";
 
 interface AgentsState {
   /** All sessions keyed by project ID */
   sessionsByProject: Record<string, AgentSession[]>;
   /** Currently active/focused session ID */
   activeSessionId: string | null;
+  /** Discovered OpenCode instances keyed by project ID */
+  instancesByProject: Record<string, OpenCodeInstance[]>;
 
   setSessions: (projectId: string, sessions: AgentSession[]) => void;
   addSession: (session: AgentSession) => void;
   updateSession: (updated: AgentSession) => void;
   removeSession: (id: string, projectId: string) => void;
   setActiveSession: (id: string | null) => void;
+  setInstances: (projectId: string, instances: OpenCodeInstance[]) => void;
 }
 
 export const useAgentsStore = create<AgentsState>((set) => ({
   sessionsByProject: {},
   activeSessionId: null,
+  instancesByProject: {},
 
   setSessions: (projectId, sessions) =>
     set((state) => ({
@@ -59,4 +63,9 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }),
 
   setActiveSession: (id) => set({ activeSessionId: id }),
+
+  setInstances: (projectId, instances) =>
+    set((state) => ({
+      instancesByProject: { ...state.instancesByProject, [projectId]: instances },
+    })),
 }));

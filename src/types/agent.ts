@@ -32,11 +32,20 @@ export interface SendMessageInput {
   content: string;
 }
 
+/** A discovered running OpenCode server instance */
+export interface OpenCodeInstance {
+  port: number;
+  baseUrl: string;
+  version: string;
+  healthy: boolean;
+}
+
 /** OpenCode-specific session info from the HTTP API */
 export interface OpenCodeSession {
   id: string;
   title?: string;
   parentID?: string;
+  createdAt: string;
 }
 
 /** Sidecar IPC message envelope */
