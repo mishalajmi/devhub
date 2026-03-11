@@ -14,6 +14,8 @@ pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
     /// Registry of active filesystem watchers (one per watched project).
     pub watcher_registry: Arc<Mutex<services::file_watcher::WatcherRegistry>>,
+    /// Manages the Node.js sidecar child process lifecycle.
+    pub sidecar: services::sidecar::SidecarManager,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,12 +39,22 @@ pub fn run() {
             let db_path = app_data_dir.join("devhub.db");
             let conn = db::init(&db_path).expect("failed to initialise database");
 
+            let sidecar_manager = services::sidecar::SidecarManager::new();
+
             app.manage(AppState {
                 db: Mutex::new(conn),
                 watcher_registry: Arc::new(Mutex::new(
                     services::file_watcher::WatcherRegistry::new(),
                 )),
+                sidecar: sidecar_manager,
             });
+
+            // Start the sidecar immediately after app state is registered.
+            let app_handle = app.handle().clone();
+            let state = app_handle.state::<AppState>();
+            if let Err(e) = services::sidecar::start(&app_handle, &state.sidecar) {
+                log::warn!("sidecar failed to start at launch: {e}");
+            }
 
             log::info!("DevHub started, DB at {:?}", db_path);
             Ok(())
@@ -63,6 +75,10 @@ pub fn run() {
             commands::agent::create_agent_session,
             commands::agent::update_agent_session,
             commands::agent::delete_agent_session,
+            // Sidecar commands
+            commands::agent::start_sidecar,
+            commands::agent::stop_sidecar,
+            commands::agent::send_sidecar_message,
             // MCP server commands
             commands::mcp::list_mcp_servers,
             commands::mcp::create_mcp_server,

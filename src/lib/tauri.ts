@@ -4,6 +4,7 @@
  * Never call invoke() directly from components or stores.
  */
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult, DirNode } from "@/types/project";
 import type { AgentSession, CreateAgentSessionInput } from "@/types/agent";
@@ -137,3 +138,23 @@ export const updateSkill = (input: UpdateSkillInput): Promise<Skill> =>
 /** Delete a skill */
 export const deleteSkill = (id: string): Promise<void> =>
   invoke("delete_skill", { id });
+
+// ─── Sidecar ──────────────────────────────────────────────────────────────────
+
+/** Start the Node.js sidecar process */
+export const startSidecar = (): Promise<void> =>
+  invoke("start_sidecar");
+
+/** Stop the Node.js sidecar process */
+export const stopSidecar = (): Promise<void> =>
+  invoke("stop_sidecar");
+
+/** Send a JSON message to the sidecar via stdin */
+export const sendSidecarMessage = (message: object): Promise<void> =>
+  invoke("send_sidecar_message", { message });
+
+/** Subscribe to events forwarded from the sidecar's stdout */
+export const onSidecarEvent = (
+  callback: (payload: unknown) => void
+): Promise<UnlistenFn> =>
+  listen("sidecar://event", (event) => callback(event.payload));
