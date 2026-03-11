@@ -1,8 +1,13 @@
 export type ResourceType = "docker" | "service" | "database" | "cloud" | "env";
 
+/**
+ * Matches the Rust `ResourceRow` struct (camelCase serde).
+ * `resourceType` maps to the `type` column in SQLite.
+ */
 export interface ProjectResource {
   id: string;
   projectId: string;
+  /** Matches the `resource_type` field in Rust (serialised as `resourceType`). */
   resourceType: ResourceType;
   name: string;
   configJson: string;
@@ -13,12 +18,12 @@ export interface ProjectResource {
 
 export interface DockerResourceConfig {
   containerName?: string;
-  composePath?: string;
+  image?: string;
 }
 
 export interface ServiceResourceConfig {
   port: number;
-  processName?: string;
+  protocol?: "http" | "https" | "tcp";
 }
 
 export interface DatabaseResourceConfig {
@@ -28,8 +33,8 @@ export interface DatabaseResourceConfig {
 
 export interface CloudResourceConfig {
   provider: "aws" | "gcp" | "azure";
-  profile?: string;
   region?: string;
+  resourceType?: string;
 }
 
 export interface EnvResourceConfig {
@@ -52,15 +57,19 @@ export interface ResourceLiveStatus {
   checkedAt: string;
 }
 
+/** Input shape for the `create_resource` Tauri command (camelCase IPC). */
 export interface CreateResourceInput {
   projectId: string;
   resourceType: ResourceType;
   name: string;
+  /** JSON-serialised config object. */
   configJson: string;
 }
 
+/** Input shape for the `update_resource` Tauri command (camelCase IPC). */
 export interface UpdateResourceInput {
   id: string;
-  name?: string;
-  configJson?: string;
+  name: string;
+  /** JSON-serialised config object. */
+  configJson: string;
 }

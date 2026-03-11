@@ -72,6 +72,7 @@ pub fn run() {
             // Resource commands
             commands::resource::list_resources,
             commands::resource::create_resource,
+            commands::resource::update_resource,
             commands::resource::delete_resource,
             // Skill commands
             commands::skill::list_skills,

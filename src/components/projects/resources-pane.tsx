@@ -1,3 +1,4 @@
+import * as React from "react";
 import {
   Database,
   Server,
@@ -7,15 +8,15 @@ import {
   Plus,
   Loader2,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useResourcesQuery } from "@/hooks/useProject";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteResource } from "@/lib/tauri";
-import { projectKeys } from "@/hooks/useProject";
+import { AddResourceDialog } from "./add-resource-dialog";
+import { DeleteResourceDialog } from "./delete-resource-dialog";
 import type { ProjectResource, ResourceType } from "@/types/resource";
 
 interface ResourcesPaneProps {
@@ -37,11 +38,6 @@ function resourceLabel(type: ResourceType): string {
   }
 }
 
-interface ResourceRowProps {
-  resource: ProjectResource;
-  onDelete: (id: string) => void;
-}
-
 function renderResourceIcon(type: ResourceType) {
   const props = { className: "h-4 w-4 shrink-0 text-muted-foreground" };
   switch (type) {
@@ -58,7 +54,13 @@ function renderResourceIcon(type: ResourceType) {
   }
 }
 
-function ResourceRow({ resource, onDelete }: ResourceRowProps) {
+interface ResourceRowProps {
+  resource: ProjectResource;
+  onEdit: (resource: ProjectResource) => void;
+  onDelete: (resource: ProjectResource) => void;
+}
+
+function ResourceRow({ resource, onEdit, onDelete }: ResourceRowProps) {
   const healthy = resource.liveStatus?.healthy;
 
   return (
@@ -78,26 +80,41 @@ function ResourceRow({ resource, onDelete }: ResourceRowProps) {
           {healthy ? "healthy" : "unhealthy"}
         </Badge>
       )}
-      <button
-        onClick={() => onDelete(resource.id)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-        aria-label="Delete resource"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={() => onEdit(resource)}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Edit resource"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => onDelete(resource)}
+          className="text-muted-foreground hover:text-destructive"
+          aria-label="Delete resource"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
 
 export function ResourcesPane({ projectId }: ResourcesPaneProps) {
   const { data: resources, isLoading, error } = useResourcesQuery(projectId);
-  const queryClient = useQueryClient();
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteResource(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
-    },
-  });
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<ProjectResource | undefined>(undefined);
+  const [deleteTarget, setDeleteTarget] = React.useState<ProjectResource | null>(null);
+
+  const handleEdit = (resource: ProjectResource) => {
+    setEditTarget(resource);
+    setAddOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setAddOpen(open);
+    if (!open) setEditTarget(undefined);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -109,7 +126,7 @@ export function ResourcesPane({ projectId }: ResourcesPaneProps) {
           variant="ghost"
           size="sm"
           className="h-6 text-xs gap-1"
-          disabled
+          onClick={() => setAddOpen(true)}
         >
           <Plus className="h-3 w-3" />
           Add resource
@@ -138,7 +155,12 @@ export function ResourcesPane({ projectId }: ResourcesPaneProps) {
                 <p className="text-xs text-muted-foreground mb-3">
                   Add Docker containers, services, databases, cloud configs, or env files.
                 </p>
-                <Button variant="outline" size="sm" className="text-xs" disabled>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setAddOpen(true)}
+                >
                   <Plus className="h-3 w-3" />
                   Add resource
                 </Button>
@@ -150,11 +172,25 @@ export function ResourcesPane({ projectId }: ResourcesPaneProps) {
             <ResourceRow
               key={resource.id}
               resource={resource}
-              onDelete={(id) => deleteMutation.mutate(id)}
+              onEdit={handleEdit}
+              onDelete={(r) => setDeleteTarget(r)}
             />
           ))}
         </div>
       </ScrollArea>
+
+      <AddResourceDialog
+        projectId={projectId}
+        open={addOpen}
+        onOpenChange={handleDialogClose}
+        editTarget={editTarget}
+      />
+
+      <DeleteResourceDialog
+        projectId={projectId}
+        resource={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

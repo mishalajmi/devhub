@@ -293,6 +293,34 @@ pub fn insert_resource(conn: &Connection, row: &ResourceRow) -> Result<()> {
     Ok(())
 }
 
+/// Get a single resource row by ID.
+pub fn get_resource(conn: &Connection, id: &str) -> Result<Option<ResourceRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, type, name, config_json, created_at
+         FROM project_resources WHERE id = ?1",
+    )?;
+    let mut rows = stmt.query_map([id], |row| {
+        Ok(ResourceRow {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            resource_type: row.get(2)?,
+            name: row.get(3)?,
+            config_json: row.get(4)?,
+            created_at: row.get(5)?,
+        })
+    })?;
+    Ok(rows.next().transpose()?)
+}
+
+/// Update the name and config_json of an existing resource row.
+pub fn update_resource(conn: &Connection, id: &str, name: &str, config_json: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE project_resources SET name = ?1, config_json = ?2 WHERE id = ?3",
+        rusqlite::params![name, config_json, id],
+    )?;
+    Ok(())
+}
+
 /// Delete a resource row.
 pub fn delete_resource(conn: &Connection, id: &str) -> Result<()> {
     conn.execute("DELETE FROM project_resources WHERE id = ?1", [id])?;
