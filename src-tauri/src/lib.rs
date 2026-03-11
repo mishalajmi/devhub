@@ -55,6 +55,7 @@ pub fn run() {
             commands::project::update_project,
             commands::project::delete_project,
             commands::project::scan_project_folder,
+            commands::project::list_dir_tree,
             commands::project::watch_project,
             commands::project::unwatch_project,
             // Agent session commands

@@ -8,6 +8,9 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Maximum depth for directory tree traversal to avoid unbounded recursion.
+const DIR_TREE_MAX_DEPTH: usize = 6;
+
 /// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -159,4 +162,71 @@ pub fn scan_project_folder(path: String) -> Result<serde_json::Value, String> {
         "hasEnvFile": has_env_file,
         "gitBranch": git_branch,
     }))
+}
+
+/// A node in the directory tree returned by `list_dir_tree`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DirNode {
+    /// Entry name (not full path)
+    pub name: String,
+    /// Absolute path to this entry
+    pub path: String,
+    /// Whether this entry is a directory
+    pub is_dir: bool,
+    /// Child nodes (empty for files or when max depth is reached)
+    pub children: Vec<DirNode>,
+}
+
+/// Recursively build a directory tree up to `max_depth` levels deep.
+fn build_tree(dir: &std::path::Path, current_depth: usize, max_depth: usize) -> Vec<DirNode> {
+    if current_depth >= max_depth {
+        return vec![];
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return vec![];
+    };
+    let mut nodes: Vec<DirNode> = entries
+        .filter_map(|e| e.ok())
+        .filter_map(|entry| {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Skip hidden entries (dotfiles/dotdirs) except .env
+            if name.starts_with('.') && name != ".env" {
+                return None;
+            }
+            let is_dir = path.is_dir();
+            let children = if is_dir {
+                build_tree(&path, current_depth + 1, max_depth)
+            } else {
+                vec![]
+            };
+            Some(DirNode {
+                name,
+                path: path.to_string_lossy().to_string(),
+                is_dir,
+                children,
+            })
+        })
+        .collect();
+    // Sort: directories first, then files, both alphabetically
+    nodes.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+    });
+    nodes
+}
+
+/// List the directory tree of a project root path.
+/// Returns up to `DIR_TREE_MAX_DEPTH` levels deep, skipping hidden entries.
+#[tauri::command]
+pub fn list_dir_tree(root_path: String) -> Result<Vec<DirNode>, String> {
+    let root = std::path::Path::new(&root_path);
+    if !root.exists() {
+        return Err(format!("Path does not exist: {}", root_path));
+    }
+    if !root.is_dir() {
+        return Err(format!("Path is not a directory: {}", root_path));
+    }
+    Ok(build_tree(root, 0, DIR_TREE_MAX_DEPTH))
 }
