@@ -41,27 +41,6 @@ bun install
 bun run tauri dev
 ```
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Desktop shell | Tauri v2 |
-| Frontend framework | React 19 + TypeScript |
-| Build tool | Vite 7 |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| State management | Zustand |
-| Async data | TanStack Query v5 |
-| Terminal rendering | xterm.js (@xterm/xterm) |
-| Icons | lucide-react |
-| Rust DB | rusqlite (bundled SQLite) |
-| Rust migrations | rusqlite_migration |
-| Docker API | bollard |
-| File watching | notify |
-| Process/PTY | std::process + portable-pty |
-| Sidecar runtime | Node.js 20+ |
-| OpenCode IPC | @opencode-ai/sdk (HTTP/SSE) |
-| Claude IPC | @anthropic-ai/claude-agent-sdk |
-
 ## Development
 
 ```bash
@@ -79,37 +58,6 @@ bun run lint
 
 # Rust build only
 cd src-tauri && cargo build
-```
-
-## Project Structure
-
-```
-devhub/
-├── src-tauri/                    # Rust backend (Tauri v2)
-│   ├── src/
-│   │   ├── main.rs               # Binary entry point
-│   │   ├── lib.rs                # Library root — wires plugins + commands
-│   │   ├── commands/             # Tauri command handlers (one file per domain)
-│   │   ├── db/                   # SQLite setup and migrations
-│   │   └── services/             # Business logic (docker, port scanner, file watcher, process)
-│   ├── capabilities/
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-│
-├── src/                          # React frontend
-│   ├── components/
-│   │   ├── ui/                   # shadcn/ui primitives
-│   │   ├── layout/               # AppShell, Sidebar, TabBar, StatusBar
-│   │   ├── agents/               # AgentPanel, TerminalView, SessionList
-│   │   ├── resources/            # DockerPanel, ServicesPanel, DbPanel, CloudPanel, EnvPanel
-│   │   ├── mcp/                  # McpRegistry, McpServerCard, McpStatusBadge
-│   │   └── skills/               # SkillLibrary, SkillEditor, SkillCard
-│   ├── stores/                   # Zustand stores (one per domain)
-│   ├── hooks/                    # Custom React hooks
-│   ├── lib/                      # Tauri invoke wrappers, agent clients, utilities
-│   └── types/                    # Shared TypeScript types
-│
-└── sidecar/                      # Node.js sidecar — IPC bridge for OpenCode and Claude SDKs
 ```
 
 ## Contributing
