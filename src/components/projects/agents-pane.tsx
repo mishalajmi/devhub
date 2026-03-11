@@ -230,10 +230,8 @@ export function AgentsPane({ projectId, isActive = false }: AgentsPaneProps) {
   const createMutation = useCreateOpenCodeSession(projectId);
   const deleteMutation = useDeleteOpenCodeSession(projectId);
 
-  const { activeSessionId, setActiveSession } = useAgentsStore((s) => ({
-    activeSessionId: s.activeSessionId,
-    setActiveSession: s.setActiveSession,
-  }));
+  const activeSessionId = useAgentsStore((s) => s.activeSessionId);
+  const setActiveSession = useAgentsStore((s) => s.setActiveSession);
 
   const isLoading = isDiscovering || isLoadingOcSessions || isLoadingDb;
 
