@@ -1,6 +1,7 @@
-//! Tauri command handlers for agent session management.
+//! Tauri command handlers for agent session management and sidecar lifecycle.
 
 use crate::db;
+use crate::services::sidecar;
 use crate::AppState;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -116,4 +117,27 @@ pub fn update_agent_session(
 pub fn delete_agent_session(id: String, state: tauri::State<AppState>) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     db::delete_agent_session(&conn, &id).map_err(|e| e.to_string())
+}
+
+// ─── Sidecar commands ─────────────────────────────────────────────────────────
+
+/// Start the Node.js sidecar process.
+#[tauri::command]
+pub fn start_sidecar(app: tauri::AppHandle, state: tauri::State<AppState>) -> Result<(), String> {
+    sidecar::start(&app, &state.sidecar).map_err(|e| e.to_string())
+}
+
+/// Stop the Node.js sidecar process.
+#[tauri::command]
+pub fn stop_sidecar(state: tauri::State<AppState>) -> Result<(), String> {
+    sidecar::stop(&state.sidecar).map_err(|e| e.to_string())
+}
+
+/// Send a JSON message to the sidecar via stdin.
+#[tauri::command]
+pub fn send_sidecar_message(
+    message: serde_json::Value,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
+    sidecar::send(&state.sidecar, message).map_err(|e| e.to_string())
 }

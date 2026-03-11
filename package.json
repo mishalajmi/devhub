@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts,.tsx --max-warnings 0"
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
+    "build:sidecar": "bun build --compile --target=bun-windows-x64 sidecar/src/index.ts --outfile src-tauri/binaries/devhub-sidecar-x86_64-pc-windows-msvc",
+    "prebuild": "bun run build:sidecar",
+    "tauri:dev": "bun run build:sidecar && tauri dev"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",

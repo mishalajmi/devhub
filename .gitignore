@@ -21,6 +21,10 @@ pnpm-lock.yaml
 src-tauri/target/
 src-tauri/gen/
 
+# Compiled sidecar binary (built by `bun run build:sidecar` before Tauri build)
+src-tauri/binaries/*.exe
+src-tauri/binaries/devhub-sidecar-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
