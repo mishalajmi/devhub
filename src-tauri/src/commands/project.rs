@@ -2,6 +2,7 @@
 //! Handlers delegate to the db module; no business logic lives here.
 
 use crate::db;
+use crate::services::file_watcher;
 use crate::AppState;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -88,6 +89,42 @@ pub fn update_project(
 pub fn delete_project(id: String, state: tauri::State<AppState>) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     db::delete_project(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// Begin watching a project's root directory for relevant filesystem changes.
+///
+/// Emits `project://changed` to the frontend whenever `.git/HEAD`,
+/// `docker-compose.yml`, or `.env` is created, modified, or removed.
+/// Replaces any existing watcher registered for the same `project_id`.
+#[tauri::command]
+pub fn watch_project(
+    project_id: String,
+    state: tauri::State<AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let project = db::get_project(&conn, &project_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Project {} not found", project_id))?;
+    drop(conn);
+
+    let root = std::path::Path::new(&project.root_path);
+    file_watcher::start_watching(
+        std::sync::Arc::clone(&state.watcher_registry),
+        app,
+        project_id,
+        root,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Stop watching the project identified by `project_id`.
+///
+/// Safe to call when no watcher is active for the project.
+#[tauri::command]
+pub fn unwatch_project(project_id: String, state: tauri::State<AppState>) -> Result<(), String> {
+    file_watcher::stop_watching(std::sync::Arc::clone(&state.watcher_registry), &project_id)
+        .map_err(|e| e.to_string())
 }
 
 /// Scan a folder path and return detected project metadata (git, docker-compose, .env).

@@ -43,6 +43,14 @@ export const scanProjectFolder = (path: string): Promise<FolderScanResult> =>
 export const pickFolder = (): Promise<string | null> =>
   openDialog({ directory: true, multiple: false, title: "Select project folder" }) as Promise<string | null>;
 
+/** Start watching a project's root directory for FS changes */
+export const watchProject = (projectId: string): Promise<void> =>
+  invoke("watch_project", { projectId });
+
+/** Stop watching a project's root directory */
+export const unwatchProject = (projectId: string): Promise<void> =>
+  invoke("unwatch_project", { projectId });
+
 // ─── Agent Sessions ───────────────────────────────────────────────────────────
 
 /** List all agent sessions for a project */
