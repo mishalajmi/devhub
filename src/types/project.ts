@@ -11,6 +11,14 @@ export interface Project {
   gitBranch?: string;
 }
 
+/** Result returned by the `scan_project_folder` Tauri command */
+export interface FolderScanResult {
+  hasGit: boolean;
+  hasDockerCompose: boolean;
+  hasEnvFile: boolean;
+  gitBranch: string | null;
+}
+
 export interface CreateProjectInput {
   name: string;
   rootPath: string;

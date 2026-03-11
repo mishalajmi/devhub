@@ -6,14 +6,18 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateAgentSessionInput {
     pub project_id: String,
     pub agent_type: String,
     pub title: Option<String>,
 }
 
+/// Deserializes from camelCase JSON sent by the TypeScript frontend.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateAgentSessionInput {
     pub status: Option<String>,
     pub external_id: Option<String>,
