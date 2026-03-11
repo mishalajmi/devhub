@@ -7,8 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Format an ISO timestamp to a short relative string */
-export function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+export function timeAgo(iso: string | undefined | null): string {
+  if (!iso) return "unknown";
+  const ms = new Date(iso).getTime();
+  if (isNaN(ms)) return "unknown";
+  const diff = Date.now() - ms;
   const seconds = Math.floor(diff / 1000);
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);

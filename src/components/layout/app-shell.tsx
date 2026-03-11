@@ -72,7 +72,7 @@ export function AppShell() {
               <div className="flex-1 overflow-hidden">
                 <ProjectTabs activeTab={activeTab} onTabChange={setActiveTab}>
                   <TabContent value="agents" className="h-full">
-                    <AgentsPane projectId={selectedProject.id} />
+                    <AgentsPane projectId={selectedProject.id} isActive={activeTab === "agents"} />
                   </TabContent>
                   <TabContent value="resources" className="h-full">
                     <ResourcesPane projectId={selectedProject.id} />
