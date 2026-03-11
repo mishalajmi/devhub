@@ -9,9 +9,12 @@ import {
   deleteProject,
   pickFolder,
   scanProjectFolder,
+  createResource,
+  updateResource,
+  deleteResource,
 } from "@/lib/tauri";
 import type { AgentSession } from "@/types/agent";
-import type { ProjectResource } from "@/types/resource";
+import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@/types/resource";
 import type { McpServer } from "@/types/mcp";
 import type { Skill } from "@/types/skill";
 import { useProjectsStore } from "@/stores/projects.store";
@@ -117,6 +120,54 @@ export function useDeleteProject() {
       logger.error("useDeleteProject", "Failed to delete project", {
         error: String(err),
       });
+    },
+  });
+}
+
+/** Mutation: create a resource; invalidates the resource list on success. */
+export function useCreateResource(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateResourceInput) => createResource(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
+      logger.info("useCreateResource", "Resource created", { projectId });
+    },
+    onError: (err: unknown) => {
+      logger.error("useCreateResource", "Failed to create resource", { error: String(err) });
+    },
+  });
+}
+
+/** Mutation: update a resource's name and config; invalidates the resource list on success. */
+export function useUpdateResource(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateResourceInput) => updateResource(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
+      logger.info("useUpdateResource", "Resource updated", { projectId });
+    },
+    onError: (err: unknown) => {
+      logger.error("useUpdateResource", "Failed to update resource", { error: String(err) });
+    },
+  });
+}
+
+/** Mutation: delete a resource; invalidates the resource list on success. */
+export function useDeleteResource(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteResource(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
+      logger.info("useDeleteResource", "Resource deleted", { id, projectId });
+    },
+    onError: (err: unknown) => {
+      logger.error("useDeleteResource", "Failed to delete resource", { error: String(err) });
     },
   });
 }
