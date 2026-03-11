@@ -5,13 +5,15 @@ mod commands;
 mod db;
 mod services;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 /// Shared application state injected into all Tauri commands.
 pub struct AppState {
     /// SQLite connection protected by a mutex for thread-safe access.
     pub db: Mutex<rusqlite::Connection>,
+    /// Registry of active filesystem watchers (one per watched project).
+    pub watcher_registry: Arc<Mutex<services::file_watcher::WatcherRegistry>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,6 +39,9 @@ pub fn run() {
 
             app.manage(AppState {
                 db: Mutex::new(conn),
+                watcher_registry: Arc::new(Mutex::new(
+                    services::file_watcher::WatcherRegistry::new(),
+                )),
             });
 
             log::info!("DevHub started, DB at {:?}", db_path);
@@ -50,6 +55,8 @@ pub fn run() {
             commands::project::update_project,
             commands::project::delete_project,
             commands::project::scan_project_folder,
+            commands::project::watch_project,
+            commands::project::unwatch_project,
             // Agent session commands
             commands::agent::list_agent_sessions,
             commands::agent::create_agent_session,

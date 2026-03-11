@@ -4,7 +4,8 @@
  * Never call invoke() directly from components or stores.
  */
 import { invoke } from "@tauri-apps/api/core";
-import type { Project, CreateProjectInput, UpdateProjectInput } from "@/types/project";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult } from "@/types/project";
 import type { AgentSession, CreateAgentSessionInput } from "@/types/agent";
 import type { McpServer, CreateMcpServerInput, UpdateMcpServerInput } from "@/types/mcp";
 import type { ProjectResource, CreateResourceInput } from "@/types/resource";
@@ -33,8 +34,22 @@ export const deleteProject = (id: string): Promise<void> =>
   invoke("delete_project", { id });
 
 /** Scan a folder path and return detected metadata */
-export const scanProjectFolder = (path: string): Promise<Partial<Project>> =>
+export const scanProjectFolder = (path: string): Promise<FolderScanResult> =>
   invoke("scan_project_folder", { path });
+
+// ─── Dialog ───────────────────────────────────────────────────────────────────
+
+/** Open a native folder-picker dialog; returns the selected path or null */
+export const pickFolder = (): Promise<string | null> =>
+  openDialog({ directory: true, multiple: false, title: "Select project folder" }) as Promise<string | null>;
+
+/** Start watching a project's root directory for FS changes */
+export const watchProject = (projectId: string): Promise<void> =>
+  invoke("watch_project", { projectId });
+
+/** Stop watching a project's root directory */
+export const unwatchProject = (projectId: string): Promise<void> =>
+  invoke("unwatch_project", { projectId });
 
 // ─── Agent Sessions ───────────────────────────────────────────────────────────
 
