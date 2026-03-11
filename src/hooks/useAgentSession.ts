@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createAgentSession, deleteAgentSession, updateAgentSession } from "@/lib/tauri";
 import {
@@ -9,10 +10,24 @@ import {
   subscribeToEvents,
   deleteSession,
 } from "@/lib/opencode";
+import {
+  createClaudeSession,
+  resumeClaudeSession,
+  abortClaudeSession,
+  onClaudeEvent,
+} from "@/lib/claude";
 import { projectKeys } from "@/hooks/useProject";
 import { useAgentsStore } from "@/stores/agents.store";
 import { logger } from "@/lib/logger";
-import type { CreateAgentSessionInput, OpenCodeInstance, OpenCodeSession } from "@/types/agent";
+import type {
+  CreateAgentSessionInput,
+  AgentSession,
+  OpenCodeInstance,
+  OpenCodeSession,
+  ClaudeEvent,
+  ClaudeMessage,
+  McpServerConfig,
+} from "@/types/agent";
 
 // ─── Query key factories ──────────────────────────────────────────────────────
 
@@ -22,7 +37,7 @@ export const agentKeys = {
     ["agents", "opencode-sessions", projectId, baseUrl] as const,
 };
 
-// ─── Legacy hooks (SQLite-backed, used by current AgentsPane) ─────────────────
+// ─── Legacy hooks (SQLite-backed) ─────────────────────────────────────────────
 
 /** Mutation hook to create a new agent session in SQLite */
 export function useCreateAgentSession(projectId: string) {
@@ -52,13 +67,6 @@ export function useDeleteAgentSession(projectId: string) {
  * Discovers OpenCode instances on the well-known port range.
  * Only runs when `enabled` is true (i.e. the Agents tab is visible).
  * Stores results in Zustand and returns the TanStack Query result.
- *
- * Safety guarantees:
- * - `discoverInstances()` never throws (returns [] on any error)
- * - `retry: 0` prevents TanStack Query from re-running discovery on failure
- * - `throwOnError: false` prevents React error boundaries from catching query errors
- * - `refetchInterval: 60_000` limits port-scan load to once per minute
- * - `refetchOnWindowFocus: false` prevents scans on every window activation
  */
 export function useOpenCodeInstances(projectId: string, enabled = true) {
   const setInstances = useAgentsStore((s) => s.setInstances);
@@ -75,11 +83,8 @@ export function useOpenCodeInstances(projectId: string, enabled = true) {
       return instances;
     },
     enabled: Boolean(projectId) && enabled,
-    // One minute between rescans — 100 port probes is expensive
     refetchInterval: 60_000,
-    // Never re-scan just because the user switched back to the window
     refetchOnWindowFocus: false,
-    // discoverInstances() never throws, but be defensive
     retry: 0,
     throwOnError: false,
   });
@@ -112,32 +117,23 @@ interface CreateOpenCodeSessionVars {
 
 /**
  * Creates a session on an OpenCode server and persists it to SQLite.
- * Invalidates both the OpenCode sessions query and the SQLite sessions query.
  */
 export function useCreateOpenCodeSession(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ baseUrl, title }: CreateOpenCodeSessionVars) => {
-      // 1. Create on OpenCode server
       const ocSession = await createSession(baseUrl, projectId, title);
-
-      // 2. Persist to SQLite so we can resume it across app restarts
       const dbSession = await createAgentSession({
         projectId,
         agentType: "opencode",
         title: ocSession.title ?? title,
       });
-
-      // 3. Link the SQLite record to the OpenCode session ID
       await updateAgentSession(dbSession.id, { externalId: ocSession.id });
-
       return { ocSession, dbSession };
     },
     onSuccess: ({ ocSession, dbSession }) => {
-      // Invalidate SQLite sessions
       queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      // Invalidate OpenCode server session lists for all known instances
       queryClient.invalidateQueries({ queryKey: ["agents", "opencode-sessions", projectId] });
       logger.info("useCreateOpenCodeSession", "Session created", {
         projectId,
@@ -170,9 +166,7 @@ export function useDeleteOpenCodeSession(projectId: string) {
   return useMutation({
     mutationFn: async ({ dbId, baseUrl, ocSessionId }: DeleteOpenCodeSessionVars) => {
       await abortSession(baseUrl, ocSessionId);
-      await deleteSession(baseUrl, ocSessionId).catch(() => {
-        // Server may not support DELETE — ignore 404 / method not allowed
-      });
+      await deleteSession(baseUrl, ocSessionId).catch(() => {});
       await deleteAgentSession(dbId);
     },
     onSuccess: () => {
@@ -187,7 +181,7 @@ export function useDeleteOpenCodeSession(projectId: string) {
   });
 }
 
-// ─── SSE event stream ─────────────────────────────────────────────────────────
+// ─── OpenCode SSE event stream ────────────────────────────────────────────────
 
 /**
  * Subscribes to the OpenCode SSE event stream for a session.
@@ -198,21 +192,183 @@ export function useOpenCodeEventStream(
   sessionId: string | null,
   onEvent: Parameters<typeof subscribeToEvents>[2]
 ) {
-  // Stable ref so the effect doesn't re-run when the callback identity changes
   const onEventRef = React.useRef(onEvent);
 
-  // Keep the ref in sync with the latest callback via a separate effect
   React.useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
 
   React.useEffect(() => {
     if (!baseUrl || !sessionId) return;
-
     const unsubscribe = subscribeToEvents(baseUrl, sessionId, (event) => {
       onEventRef.current(event);
     });
-
     return unsubscribe;
   }, [baseUrl, sessionId]);
+}
+
+// ─── Claude session creation ──────────────────────────────────────────────────
+
+interface CreateClaudeSessionArgs {
+  prompt: string;
+  mcpServers?: McpServerConfig[];
+}
+
+/**
+ * Mutation: create an agent session record in SQLite, start the Claude session
+ * via the sidecar, and listen for `claude:session:init` to persist the
+ * Claude-native session ID (`externalId`) back to SQLite.
+ */
+export function useCreateClaudeSession(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ prompt, mcpServers = [] }: CreateClaudeSessionArgs) => {
+      const session = await createAgentSession({
+        projectId,
+        agentType: "claude",
+      });
+
+      await updateAgentSession(session.id, { status: "running" });
+
+      const unlisten = await onClaudeEvent(async (event: ClaudeEvent) => {
+        if (
+          event.type === "claude:session:init" &&
+          event.sessionId === session.id &&
+          event.claudeSessionId
+        ) {
+          try {
+            await updateAgentSession(session.id, {
+              externalId: event.claudeSessionId,
+              status: "running",
+            });
+            queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+            logger.info("useCreateClaudeSession", "claude:session:init received", {
+              sessionId: session.id,
+              claudeSessionId: event.claudeSessionId,
+            });
+          } catch (err) {
+            logger.error("useCreateClaudeSession", "Failed to persist claudeSessionId", {
+              error: String(err),
+            });
+          } finally {
+            unlisten();
+          }
+        }
+      });
+
+      await createClaudeSession(session.id, prompt, mcpServers);
+
+      return { ...session, status: "running" } as AgentSession;
+    },
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+      logger.info("useCreateClaudeSession", "Claude session created", { id: session.id });
+    },
+    onError: (err: unknown) => {
+      logger.error("useCreateClaudeSession", "Failed to create Claude session", {
+        error: String(err),
+      });
+    },
+  });
+}
+
+// ─── Claude event stream ──────────────────────────────────────────────────────
+
+/**
+ * Subscribe to the sidecar event stream for a specific DevHub session.
+ * Calls `onMessage` for every `claude:message` event matching the sessionId.
+ * Automatically unsubscribes on unmount.
+ */
+export function useClaudeEventStream(
+  sessionId: string | null,
+  onMessage: (message: ClaudeMessage) => void
+): void {
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let unlisten: (() => void) | null = null;
+
+    onClaudeEvent((event: ClaudeEvent) => {
+      if (event.sessionId !== sessionId) return;
+      if (event.type === "claude:message" && event.message) {
+        onMessage(event.message);
+      }
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch((err) => {
+        logger.error("useClaudeEventStream", "Failed to subscribe to claude events", {
+          error: String(err),
+          sessionId,
+        });
+      });
+
+    return () => {
+      unlisten?.();
+    };
+  }, [sessionId, onMessage]);
+}
+
+// ─── Claude session resume ────────────────────────────────────────────────────
+
+interface ResumeClaudeSessionArgs {
+  session: AgentSession;
+  prompt: string;
+}
+
+/**
+ * Mutation: resume an existing Claude session using its stored `externalId`.
+ */
+export function useResumeClaudeSession(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ session, prompt }: ResumeClaudeSessionArgs) => {
+      if (!session.externalId) {
+        throw new Error(
+          `Session ${session.id} has no externalId — cannot resume without a Claude session ID`
+        );
+      }
+      await updateAgentSession(session.id, { status: "running" });
+      await resumeClaudeSession(session.id, session.externalId, prompt);
+      return session;
+    },
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+      logger.info("useResumeClaudeSession", "Claude session resumed", { id: session.id });
+    },
+    onError: (err: unknown) => {
+      logger.error("useResumeClaudeSession", "Failed to resume Claude session", {
+        error: String(err),
+      });
+    },
+  });
+}
+
+// ─── Claude session abort ─────────────────────────────────────────────────────
+
+/**
+ * Mutation: abort a running Claude session and mark it as stopped in SQLite.
+ */
+export function useAbortClaudeSession(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (session: AgentSession) => {
+      await abortClaudeSession(session.id);
+      await updateAgentSession(session.id, { status: "stopped" });
+      return session;
+    },
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+      logger.info("useAbortClaudeSession", "Claude session aborted", { id: session.id });
+    },
+    onError: (err: unknown) => {
+      logger.error("useAbortClaudeSession", "Failed to abort Claude session", {
+        error: String(err),
+      });
+    },
+  });
 }
