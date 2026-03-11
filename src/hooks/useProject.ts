@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listAgentSessions, listResources, listMcpServers, listSkills, listProjects, createProject, deleteProject, pickFolder, scanProjectFolder } from "@/lib/tauri";
+import {
+  listAgentSessions,
+  listResources,
+  listMcpServers,
+  listSkills,
+  listProjects,
+  createProject,
+  deleteProject,
+  pickFolder,
+  scanProjectFolder,
+} from "@/lib/tauri";
 import type { AgentSession } from "@/types/agent";
 import type { ProjectResource } from "@/types/resource";
 import type { McpServer } from "@/types/mcp";
@@ -12,8 +22,10 @@ import type { CreateProjectInput, FolderScanResult } from "@/types/project";
 export const projectKeys = {
   all: ["projects"] as const,
   sessions: (projectId: string) => ["projects", projectId, "sessions"] as const,
-  resources: (projectId: string) => ["projects", projectId, "resources"] as const,
-  mcpServers: (projectId: string) => ["projects", projectId, "mcpServers"] as const,
+  resources: (projectId: string) =>
+    ["projects", projectId, "resources"] as const,
+  mcpServers: (projectId: string) =>
+    ["projects", projectId, "mcpServers"] as const,
   skills: (projectId: string) => ["projects", projectId, "skills"] as const,
 };
 
@@ -71,11 +83,13 @@ export function useProjects() {
 export function useCreateProject() {
   const queryClient = useQueryClient();
   const addProject = useProjectsStore((s) => s.addProject);
+  const selectProject = useProjectsStore((s) => s.selectProject);
 
   return useMutation({
     mutationFn: (input: CreateProjectInput) => createProject(input),
     onSuccess: (project) => {
       addProject(project);
+      selectProject(project.id);
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
       logger.info("useCreateProject", "Project created", { id: project.id });
     },
