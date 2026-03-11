@@ -57,36 +57,61 @@ async function apiDelete(baseUrl: string, path: string): Promise<void> {
 // ─── Discovery ────────────────────────────────────────────────────────────────
 
 /**
+ * Probe a single port. Returns an OpenCodeInstance if healthy, null otherwise.
+ * Every possible failure is swallowed here — this function NEVER throws.
+ */
+async function probePort(port: number): Promise<OpenCodeInstance | null> {
+  try {
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    // Build an AbortController manually so we work on all WebView versions.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/global/health`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as OpenCodeHealthResponse;
+    if (!data.healthy) return null;
+
+    return { port, baseUrl, version: data.version ?? "unknown", healthy: true };
+  } catch {
+    // Connection refused, timeout, parse error — all are expected for closed ports.
+    return null;
+  }
+}
+
+/**
  * Scan the well-known port range for running OpenCode instances.
  * Returns all healthy instances sorted by port ascending.
+ * Never throws — returns [] on any unexpected error.
  */
 export async function discoverInstances(): Promise<OpenCodeInstance[]> {
-  const results = await Promise.allSettled(
-    OPENCODE_DISCOVERY_PORTS.map(async (port) => {
-      const baseUrl = `http://127.0.0.1:${port}`;
-      const res = await fetch(`${baseUrl}/global/health`, {
-        signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS),
-      });
-      if (!res.ok) throw new Error("not ok");
-      const data = (await res.json()) as OpenCodeHealthResponse;
-      if (!data.healthy) throw new Error("not healthy");
-      const instance: OpenCodeInstance = {
-        port,
-        baseUrl,
-        version: data.version,
-        healthy: true,
-      };
-      return instance;
-    })
-  );
+  try {
+    const probes = await Promise.allSettled(
+      OPENCODE_DISCOVERY_PORTS.map((port) => probePort(port))
+    );
 
-  const instances = results
-    .filter((r): r is PromiseFulfilledResult<OpenCodeInstance> => r.status === "fulfilled")
-    .map((r) => r.value)
-    .sort((a, b) => a.port - b.port);
+    const instances = probes
+      .filter(
+        (r): r is PromiseFulfilledResult<OpenCodeInstance> =>
+          r.status === "fulfilled" && r.value !== null
+      )
+      .map((r) => r.value)
+      .sort((a, b) => a.port - b.port);
 
-  logger.info("opencode", "Discovery complete", { found: instances.length });
-  return instances;
+    logger.info("opencode", "Discovery complete", { found: instances.length });
+    return instances;
+  } catch {
+    logger.warn("opencode", "Discovery failed unexpectedly", {});
+    return [];
+  }
 }
 
 /**

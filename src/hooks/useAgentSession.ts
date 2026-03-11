@@ -50,10 +50,17 @@ export function useDeleteAgentSession(projectId: string) {
 
 /**
  * Discovers OpenCode instances on the well-known port range.
- * Runs once on mount and stores results in Zustand.
- * Returns the TanStack Query result so callers can read isLoading / error.
+ * Only runs when `enabled` is true (i.e. the Agents tab is visible).
+ * Stores results in Zustand and returns the TanStack Query result.
+ *
+ * Safety guarantees:
+ * - `discoverInstances()` never throws (returns [] on any error)
+ * - `retry: 0` prevents TanStack Query from re-running discovery on failure
+ * - `throwOnError: false` prevents React error boundaries from catching query errors
+ * - `refetchInterval: 60_000` limits port-scan load to once per minute
+ * - `refetchOnWindowFocus: false` prevents scans on every window activation
  */
-export function useOpenCodeInstances(projectId: string) {
+export function useOpenCodeInstances(projectId: string, enabled = true) {
   const setInstances = useAgentsStore((s) => s.setInstances);
 
   return useQuery<OpenCodeInstance[]>({
@@ -67,11 +74,14 @@ export function useOpenCodeInstances(projectId: string) {
       });
       return instances;
     },
-    enabled: Boolean(projectId),
-    // Refresh discovery every 30 s so the UI reflects instances that come/go
-    refetchInterval: 30_000,
-    // Don't re-run on window focus — discovery is expensive (100 port probes)
+    enabled: Boolean(projectId) && enabled,
+    // One minute between rescans — 100 port probes is expensive
+    refetchInterval: 60_000,
+    // Never re-scan just because the user switched back to the window
     refetchOnWindowFocus: false,
+    // discoverInstances() never throws, but be defensive
+    retry: 0,
+    throwOnError: false,
   });
 }
 
@@ -86,8 +96,10 @@ export function useOpenCodeSessions(projectId: string, baseUrl: string | null) {
     queryKey: agentKeys.opencodeSessions(projectId, baseUrl ?? ""),
     queryFn: () => listSessions(baseUrl!),
     enabled: Boolean(projectId) && Boolean(baseUrl),
-    refetchInterval: 10_000,
+    refetchInterval: 15_000,
     refetchOnWindowFocus: false,
+    retry: 0,
+    throwOnError: false,
   });
 }
 

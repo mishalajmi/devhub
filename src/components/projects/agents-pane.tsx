@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Bot, Plus, Loader2, Trash2, Wifi, WifiOff, RefreshCw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,9 @@ import {
   useOpenCodeEventStream,
 } from "@/hooks/useAgentSession";
 import { useAgentsStore } from "@/stores/agents.store";
+import { deleteAgentSession } from "@/lib/tauri";
 import { timeAgo } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import type { AgentSession, OpenCodeInstance, OpenCodeSession } from "@/types/agent";
 
 interface AgentsPaneProps {
@@ -68,6 +71,13 @@ interface OpenCodeSessionRowProps {
   onDelete: () => void;
 }
 
+function statusVariant(s: string): "running" | "stopped" | "error" | "secondary" {
+  if (s === "running") return "running";
+  if (s === "error") return "error";
+  if (s === "stopped") return "stopped";
+  return "secondary";
+}
+
 function OpenCodeSessionRow({
   ocSession,
   dbSession,
@@ -78,13 +88,6 @@ function OpenCodeSessionRow({
 }: OpenCodeSessionRowProps) {
   const status = dbSession?.status ?? "idle";
   const title = ocSession.title ?? dbSession?.title ?? ocSession.id.slice(0, 8);
-
-  function statusVariant(s: string): "running" | "stopped" | "error" | "secondary" {
-    if (s === "running") return "running";
-    if (s === "error") return "error";
-    if (s === "stopped") return "stopped";
-    return "secondary";
-  }
 
   return (
     <button
@@ -135,13 +138,6 @@ interface DbSessionRowProps {
 }
 
 function DbSessionRow({ session, isActive, onSelect, onDelete }: DbSessionRowProps) {
-  function statusVariant(s: string): "running" | "stopped" | "error" | "secondary" {
-    if (s === "running") return "running";
-    if (s === "error") return "error";
-    if (s === "stopped") return "stopped";
-    return "secondary";
-  }
-
   return (
     <button
       type="button"
@@ -194,7 +190,6 @@ function EventStreamWatcher({ baseUrl, sessionId, projectId }: EventStreamWatche
   const sessions = useAgentsStore((s) => s.sessionsByProject[projectId] ?? []);
 
   useOpenCodeEventStream(baseUrl, sessionId, (event) => {
-    // Update running status based on stream events
     const session = sessions.find((s) => s.externalId === sessionId);
     if (!session) return;
 
@@ -212,9 +207,36 @@ function EventStreamWatcher({ baseUrl, sessionId, projectId }: EventStreamWatche
 
 // ─── Main pane ────────────────────────────────────────────────────────────────
 
+// Local type mirroring the vars shape from useDeleteOpenCodeSession
+interface DeleteOpenCodeSessionVars {
+  dbId: string;
+  baseUrl: string;
+  ocSessionId: string;
+}
+
 export function AgentsPane({ projectId }: AgentsPaneProps) {
+  // Track whether this pane is actually visible so we don't fire 100 port-scan
+  // fetches on every project selection regardless of which tab is active.
+  // Radix Tabs keeps the pane in the DOM (hidden via CSS), so we use an
+  // IntersectionObserver to detect true visibility.
+  const paneRef = React.useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = paneRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const { data: instances, isLoading: isDiscovering, refetch: rediscover } =
-    useOpenCodeInstances(projectId);
+    useOpenCodeInstances(projectId, isVisible);
+
   const activeInstance: OpenCodeInstance | null = instances?.[0] ?? null;
 
   const { data: ocSessions, isLoading: isLoadingOcSessions } = useOpenCodeSessions(
@@ -239,9 +261,11 @@ export function AgentsPane({ projectId }: AgentsPaneProps) {
     createMutation.mutate({ baseUrl: activeInstance.baseUrl });
   };
 
-  const handleDeleteSession = (ocSession: OpenCodeSession, dbSession: AgentSession | undefined) => {
-    if (!activeInstance) return;
-    if (!dbSession) return;
+  const handleDeleteSession = (
+    ocSession: OpenCodeSession,
+    dbSession: AgentSession | undefined
+  ) => {
+    if (!activeInstance || !dbSession) return;
     deleteMutation.mutate({
       dbId: dbSession.id,
       baseUrl: activeInstance.baseUrl,
@@ -250,13 +274,8 @@ export function AgentsPane({ projectId }: AgentsPaneProps) {
   };
 
   const handleDeleteDbSession = (dbId: string) => {
-    // For orphaned SQLite sessions (no live instance), delete from DB only
-    import("@/lib/tauri").then(({ deleteAgentSession }) => {
-      deleteAgentSession(dbId).catch((err: unknown) => {
-        import("@/lib/logger").then(({ logger }) => {
-          logger.error("AgentsPane", "Failed to delete db session", { error: String(err) });
-        });
-      });
+    deleteAgentSession(dbId).catch((err: unknown) => {
+      logger.error("AgentsPane", "Failed to delete db session", { error: String(err) });
     });
   };
 
@@ -265,7 +284,7 @@ export function AgentsPane({ projectId }: AgentsPaneProps) {
   const activeOcSessionId = activeDbSession?.externalId ?? null;
 
   return (
-    <div className="flex flex-col h-full">
+    <div ref={paneRef} className="flex flex-col h-full">
       {/* SSE stream watcher — mounts only when there's an active session */}
       {activeInstance && activeOcSessionId && (
         <EventStreamWatcher
@@ -319,9 +338,7 @@ export function AgentsPane({ projectId }: AgentsPaneProps) {
             </div>
           )}
 
-          {!isLoading && !activeInstance && (
-            <NoInstanceEmptyState />
-          )}
+          {!isLoading && !activeInstance && <NoInstanceEmptyState />}
 
           {/* OpenCode server sessions (live data) */}
           {!isLoading && activeInstance && ocSessions && ocSessions.length === 0 && (
@@ -394,11 +411,4 @@ export function AgentsPane({ projectId }: AgentsPaneProps) {
       </ScrollArea>
     </div>
   );
-}
-
-// Local type alias used for inference in the delete handler
-interface DeleteOpenCodeSessionVars {
-  dbId: string;
-  baseUrl: string;
-  ocSessionId: string;
 }
