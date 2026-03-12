@@ -246,6 +246,7 @@ Before marking any chunk complete, verify all of the following:
 10. No `console.log` in committed code
 11. `src-tauri/tauri.conf.json` `plugins.shell` must only contain `"open": true` — never `"sidecar"` (Tauri v2 sidecar permissions are declared in `capabilities/`, not here)
 12. Zustand selectors must never use inline object literals `(s) => ({ a: s.a, b: s.b })` — always use separate `useStore((s) => s.field)` calls per field to avoid infinite render loops
+13. `create_project` in `src-tauri/src/commands/project.rs` must auto-insert resources for detected `docker-compose` and `.env` files after inserting the project row — do not remove this logic when resolving conflicts
 
 ## Commit Message Format
 
