@@ -45,6 +45,8 @@ pub fn get_project(
 }
 
 /// Create a new project from a folder path.
+/// After inserting the project, auto-creates resources for any detected
+/// docker-compose file or .env file in the project root.
 #[tauri::command]
 pub fn create_project(
     input: CreateProjectInput,
@@ -56,10 +58,45 @@ pub fn create_project(
         name: input.name,
         root_path: input.root_path,
         created_at: now.clone(),
-        updated_at: now,
+        updated_at: now.clone(),
     };
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     db::insert_project(&conn, &row).map_err(|e| e.to_string())?;
+
+    // Auto-detect and insert resources based on the project root contents.
+    let root = std::path::Path::new(&row.root_path);
+
+    let has_docker = root.join("docker-compose.yml").exists()
+        || root.join("docker-compose.yaml").exists()
+        || root.join("compose.yml").exists()
+        || root.join("compose.yaml").exists();
+
+    let has_env = root.join(".env").exists();
+
+    if has_docker {
+        let r = db::ResourceRow {
+            id: Uuid::new_v4().to_string(),
+            project_id: row.id.clone(),
+            resource_type: "docker".to_string(),
+            name: "docker-compose".to_string(),
+            config_json: "{}".to_string(),
+            created_at: now.clone(),
+        };
+        db::insert_resource(&conn, &r).map_err(|e| e.to_string())?;
+    }
+
+    if has_env {
+        let r = db::ResourceRow {
+            id: Uuid::new_v4().to_string(),
+            project_id: row.id.clone(),
+            resource_type: "env".to_string(),
+            name: ".env".to_string(),
+            config_json: "{}".to_string(),
+            created_at: now,
+        };
+        db::insert_resource(&conn, &r).map_err(|e| e.to_string())?;
+    }
+
     Ok(row)
 }
 
