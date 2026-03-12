@@ -235,8 +235,8 @@ CREATE TABLE agent_sessions (
 Before marking any chunk complete, verify all of the following:
 
 1. `cargo build` in `src-tauri/` passes with **zero warnings**
-2. `npm run typecheck` passes — zero TypeScript errors
-3. `npm run lint` passes — zero ESLint errors
+2. `bun run typecheck` passes — zero TypeScript errors
+3. `bun run lint` passes — zero ESLint errors
 4. Affected UI renders correctly and matches the dark dense design language
 5. Any new Tauri command has a corresponding typed wrapper in `src/lib/tauri.ts`
 6. Any new SQLite table has a migration file in `src-tauri/src/db/migrations/`
@@ -244,6 +244,8 @@ Before marking any chunk complete, verify all of the following:
 8. No `invoke()` calls outside `src/lib/tauri.ts`
 9. No hardcoded ports, paths, or credentials anywhere
 10. No `console.log` in committed code
+11. `src-tauri/tauri.conf.json` `plugins.shell` must only contain `"open": true` — never `"sidecar"` (Tauri v2 sidecar permissions are declared in `capabilities/`, not here)
+12. Zustand selectors must never use inline object literals `(s) => ({ a: s.a, b: s.b })` — always use separate `useStore((s) => s.field)` calls per field to avoid infinite render loops
 
 ## Commit Message Format
 
