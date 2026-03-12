@@ -310,3 +310,5 @@ chore(shell): configure Tailwind dark theme tokens
 | 38 | Testing | Rust unit + integration tests (commands, db, cascade delete) |
 | 39 | Testing | Frontend unit tests — utils, opencode client, hooks, stores (Vitest) |
 | 40 | Testing | Frontend component tests — ResourcesPane, AgentsPane, AppShell |
+| 41 | CI | GitHub Actions pipeline — typecheck, lint, cargo build, cargo test, vitest |
+| 42 | CI | PR template + branch protection + CI section in AGENTS.md |
