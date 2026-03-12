@@ -307,3 +307,6 @@ chore(shell): configure Tailwind dark theme tokens
 | 35 | Project Init | Init backend — `init_project` command + templates |
 | 36 | Project Init | Init dialog UI — multi-step new project flow |
 | 37 | Project Init | Template scaffolding details (node/rust/python/.gitignore) |
+| 38 | Testing | Rust unit + integration tests (commands, db, cascade delete) |
+| 39 | Testing | Frontend unit tests — utils, opencode client, hooks, stores (Vitest) |
+| 40 | Testing | Frontend component tests — ResourcesPane, AgentsPane, AppShell |
