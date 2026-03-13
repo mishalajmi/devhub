@@ -312,3 +312,6 @@ chore(shell): configure Tailwind dark theme tokens
 | 40 | Testing | Frontend component tests — ResourcesPane, AgentsPane, AppShell |
 | 41 | CI | GitHub Actions pipeline — typecheck, lint, cargo build, cargo test, vitest |
 | 42 | CI | PR template + branch protection + CI section in AGENTS.md |
+| 43 | Agent Drivers | AgentDriver contract + registry + plugin loader (config-driven) |
+| 44 | Agent Drivers | OpenCode driver — Rust process spawn + @opencode-ai/sdk client |
+| 45 | Agent Drivers | Claude driver — refactor into AgentDriver interface |
