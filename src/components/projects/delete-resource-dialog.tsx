@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useDeleteResource } from "@/hooks/useProject";
 import { logger } from "@/lib/logger";
-import type { ProjectResource } from "@/types/resource";
+import type { ProjectResource } from "@devhub/types";
 
 interface DeleteResourceDialogProps {
   projectId: string;

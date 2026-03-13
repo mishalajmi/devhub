@@ -7,7 +7,7 @@
  */
 
 import { logger } from "@/lib/logger";
-import type { OpenCodeInstance, OpenCodeSession } from "@/types/agent";
+import type { OpenCodeInstance, OpenCodeSession } from "@devhub/types";
 
 /** Port range to scan for running OpenCode instances (inclusive) */
 const OPENCODE_PORT_MIN = 4096;

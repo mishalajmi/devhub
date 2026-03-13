@@ -1,5 +1,5 @@
-import type { AgentDriver, AgentDriverManifest } from "@/types/agent-driver";
-import { isDriverWithRemoteSessions } from "@/types/agent-driver";
+import type { AgentDriver, AgentDriverManifest } from "@devhub/types";
+import { isDriverWithRemoteSessions } from "@devhub/types";
 import {
   DriverNotFoundError,
   DriverAlreadyRegisteredError,

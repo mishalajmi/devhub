@@ -7,7 +7,7 @@ import { useSkillsQuery } from "@/hooks/useProject";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteSkill } from "@/lib/tauri";
 import { projectKeys } from "@/hooks/useProject";
-import type { Skill } from "@/types/skill";
+import type { Skill } from "@devhub/types";
 
 interface SkillsPaneProps {
   projectId: string;

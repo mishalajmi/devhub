@@ -13,13 +13,13 @@ import {
   updateResource,
   deleteResource,
 } from "@/lib/tauri";
-import type { AgentSession } from "@/types/agent";
-import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@/types/resource";
-import type { McpServer } from "@/types/mcp";
-import type { Skill } from "@/types/skill";
+import type { AgentSession } from "@devhub/types";
+import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@devhub/types";
+import type { McpServer } from "@devhub/types";
+import type { Skill } from "@devhub/types";
 import { useProjectsStore } from "@/stores/projects.store";
 import { logger } from "@/lib/logger";
-import type { CreateProjectInput, FolderScanResult } from "@/types/project";
+import type { CreateProjectInput, FolderScanResult } from "@devhub/types";
 
 /** Query key factory for project-scoped data */
 export const projectKeys = {

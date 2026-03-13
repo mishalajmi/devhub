@@ -27,7 +27,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   McpServerConfig,
-} from "@/types/agent";
+} from "@devhub/types";
 
 // ─── Query key factories ──────────────────────────────────────────────────────
 

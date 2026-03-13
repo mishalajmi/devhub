@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { projectKeys } from "@/hooks/useProject";
-import type { ProjectResource } from "@/types/resource";
+import type { ProjectResource } from "@devhub/types";
 
 /**
  * Returns a callback to manually update a resource's live status in the query cache.

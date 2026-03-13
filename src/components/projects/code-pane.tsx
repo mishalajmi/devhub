@@ -11,7 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { listDirTree } from "@/lib/tauri";
-import type { DirNode } from "@/types/project";
+import type { DirNode } from "@devhub/types";
 
 interface CodePaneProps {
   projectId: string;

@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { useResourcesQuery } from "@/hooks/useProject";
 import { AddResourceDialog } from "./add-resource-dialog";
 import { DeleteResourceDialog } from "./delete-resource-dialog";
-import type { ProjectResource, ResourceType } from "@/types/resource";
+import type { ProjectResource, ResourceType } from "@devhub/types";
 
 interface ResourcesPaneProps {
   projectId: string;

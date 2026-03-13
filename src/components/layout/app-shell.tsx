@@ -14,7 +14,7 @@ import { CodePane } from "@/components/projects/code-pane";
 import { useProjects } from "@/hooks/useProject";
 import { useProjectWatcher } from "@/hooks/useProjectWatcher";
 import { FolderOpen, Bot } from "lucide-react";
-import type { Project } from "@/types/project";
+import type { Project } from "@devhub/types";
 
 export function AppShell() {
   const { projects, selectedProjectId } = useProjectsStore();

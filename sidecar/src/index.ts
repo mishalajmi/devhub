@@ -16,6 +16,13 @@
 
 import { opencodeAdapter } from "./adapters/opencode";
 import { claudeAdapter } from "./adapters/claude.js";
+import {
+  loadBuiltinDrivers,
+  loadLocalDriver,
+  loadLocalDriversFromDir,
+  listManifests,
+  unregisterDriver,
+} from "./driver-loader.js";
 
 type IncomingMessage = {
   id: string;
@@ -46,6 +53,8 @@ async function handle(msg: IncomingMessage): Promise<void> {
       result = await opencodeAdapter(msg.type, msg.payload);
     } else if (msg.type.startsWith("claude:")) {
       result = await claudeAdapter(msg.type, msg.payload, msg.id);
+    } else if (msg.type.startsWith("drivers:")) {
+      result = await handleDrivers(msg.type, msg.payload);
     } else {
       throw new Error(`Unknown message type: ${msg.type}`);
     }
@@ -57,6 +66,42 @@ async function handle(msg: IncomingMessage): Promise<void> {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
     });
+  }
+}
+
+/** Handle driver management messages */
+async function handleDrivers(
+  type: string,
+  payload: Record<string, unknown>
+): Promise<unknown> {
+  switch (type) {
+    case "drivers:list":
+      return listManifests();
+
+    case "drivers:load": {
+      const { path: filePath } = payload as { path: string };
+      if (!filePath || typeof filePath !== "string") {
+        throw new Error("drivers:load requires a non-empty string `path` field");
+      }
+      return loadLocalDriver(filePath);
+    }
+
+    case "drivers:load-dir": {
+      const { dir } = payload as { dir?: string };
+      return loadLocalDriversFromDir(dir);
+    }
+
+    case "drivers:unregister": {
+      const { id } = payload as { id: string };
+      if (!id || typeof id !== "string") {
+        throw new Error("drivers:unregister requires a non-empty string `id` field");
+      }
+      unregisterDriver(id);
+      return { unregistered: true };
+    }
+
+    default:
+      throw new Error(`Unknown drivers message type: ${type}`);
   }
 }
 
@@ -91,4 +136,13 @@ function startStdinLoop(): void {
 }
 
 process.stderr.write("[sidecar] DevHub sidecar started\n");
+
+// Load built-in drivers then scan ~/.devhub/drivers/ for user drivers.
+// Both are fire-and-forget — failures are logged, not fatal.
+loadBuiltinDrivers()
+  .then(() => loadLocalDriversFromDir())
+  .catch((err) => {
+    process.stderr.write(`[sidecar] driver init error: ${err}\n`);
+  });
+
 startStdinLoop();

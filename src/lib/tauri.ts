@@ -6,11 +6,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult, DirNode } from "@/types/project";
-import type { AgentSession, CreateAgentSessionInput } from "@/types/agent";
-import type { McpServer, CreateMcpServerInput, UpdateMcpServerInput } from "@/types/mcp";
-import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@/types/resource";
-import type { Skill, CreateSkillInput, UpdateSkillInput } from "@/types/skill";
+import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult, DirNode } from "@devhub/types";
+import type { AgentSession, CreateAgentSessionInput } from "@devhub/types";
+import type { McpServer, CreateMcpServerInput, UpdateMcpServerInput } from "@devhub/types";
+import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@devhub/types";
+import type { Skill, CreateSkillInput, UpdateSkillInput } from "@devhub/types";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Skill } from "@/types/skill";
+import type { Skill } from "@devhub/types";
 
 interface SkillsState {
   skills: Skill[];

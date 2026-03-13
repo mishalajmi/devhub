@@ -31,7 +31,7 @@ import type {
   DatabaseResourceConfig,
   CloudResourceConfig,
   EnvResourceConfig,
-} from "@/types/resource";
+} from "@devhub/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

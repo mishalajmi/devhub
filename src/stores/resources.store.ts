@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ProjectResource } from "@/types/resource";
+import type { ProjectResource } from "@devhub/types";
 
 interface ResourcesState {
   resourcesByProject: Record<string, ProjectResource[]>;

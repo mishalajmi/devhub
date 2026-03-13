@@ -18,7 +18,7 @@
 
 import { sendSidecarMessage, onSidecarEvent } from "@/lib/tauri";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import type { ClaudeEvent, McpServerConfig } from "@/types/agent";
+import type { ClaudeEvent, McpServerConfig } from "@devhub/types";
 
 /**
  * Send a `claude:session:create` message to the sidecar.

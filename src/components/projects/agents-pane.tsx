@@ -15,7 +15,7 @@ import { useAgentsStore } from "@/stores/agents.store";
 import { deleteAgentSession } from "@/lib/tauri";
 import { timeAgo } from "@/lib/utils";
 import { logger } from "@/lib/logger";
-import type { AgentSession, OpenCodeInstance, OpenCodeSession } from "@/types/agent";
+import type { AgentSession, OpenCodeInstance, OpenCodeSession } from "@devhub/types";
 
 interface AgentsPaneProps {
   projectId: string;
