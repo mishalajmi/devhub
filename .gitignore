@@ -35,3 +35,7 @@ src-tauri/binaries/devhub-sidecar-*
 *.njsproj
 *.sln
 *.sw?
+
+# tasks
+tasks/
+sidecar/bun.lock
