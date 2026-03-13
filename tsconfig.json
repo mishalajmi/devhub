@@ -17,7 +17,8 @@
     /* Path aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@devhub/types": ["./packages/types/src/index.ts"]
     },
 
     /* Linting */

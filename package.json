@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "sidecar"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -15,6 +19,7 @@
     "tauri:dev": "bun run build:sidecar && tauri dev"
   },
   "dependencies": {
+    "@devhub/types": "workspace:*",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
