@@ -60,6 +60,44 @@ bun run lint
 cd src-tauri && cargo build
 ```
 
+## Local Agent Drivers
+
+DevHub supports custom agent drivers loaded from `~/.devhub/drivers/`. Each file must export a named `driver` implementing the `AgentDriver` interface from `@devhub/types`.
+
+```ts
+// ~/.devhub/drivers/my-agent.ts
+import type { AgentDriver, AgentStartOptions } from "@devhub/types";
+
+export const driver: AgentDriver = {
+  id: "my-agent",        // must be unique across all registered drivers
+  name: "My Agent",
+  description: "Custom agent driver",
+  supportsResume: false,
+  supportsMcp: false,
+
+  async start(options: AgentStartOptions) {
+    options.onStatusChange("initializing");
+    // connect to your agent...
+    options.onStatusChange("idle");
+  },
+
+  async resume(options: AgentStartOptions) { /* ... */ },
+  async stop(sessionId: string) { /* ... */ },
+  async send(sessionId: string, prompt: string) { /* ... */ },
+  async abort(sessionId: string) { /* ... */ },
+};
+```
+
+Drivers in `~/.devhub/drivers/` are scanned and registered automatically on app startup. To load a specific file at runtime:
+
+```ts
+import { loadLocalDriver } from "@/lib/tauri";
+
+const manifest = await loadLocalDriver("/absolute/path/to/my-agent.ts");
+```
+
+Drivers run in the sidecar's Node.js context and have access to all Node.js built-ins. To use external packages, install them in the sidecar: `cd sidecar && bun add my-package`.
+
 ## Contributing
 
 Fork the repository, create a branch off `main`, and open a pull request with a clear description of the change. See `AGENTS.md` for architecture, code style, and conventions.
