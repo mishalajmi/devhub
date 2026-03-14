@@ -6,6 +6,7 @@
 //! events.  Automatically attempts one restart if the sidecar exits
 //! unexpectedly.
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -14,6 +15,10 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+use tokio::sync::oneshot;
+
+/// Alias for the shared pending-request map type.
+pub type PendingRequests = Arc<Mutex<HashMap<String, oneshot::Sender<Value>>>>;
 
 /// Wraps the optional child process handle behind a shared mutex so it can be
 /// safely accessed from multiple Tauri command handlers.
@@ -38,7 +43,15 @@ impl Default for SidecarManager {
 
 /// Spawn the `devhub-sidecar` binary, pipe its stdout/stderr, and begin
 /// forwarding events to the frontend.  Replaces any previously held child.
-pub fn start(app: &AppHandle, manager: &SidecarManager) -> Result<()> {
+///
+/// `pending` is the shared map of in-flight request IDs to oneshot senders.
+/// When a stdout line arrives with a matching `id`, it resolves the channel
+/// directly instead of broadcasting via `sidecar://event`.
+pub fn start(
+    app: &AppHandle,
+    manager: &SidecarManager,
+    pending: PendingRequests,
+) -> Result<()> {
     let (mut rx, child) = app
         .shell()
         .sidecar("devhub-sidecar")
@@ -59,6 +72,7 @@ pub fn start(app: &AppHandle, manager: &SidecarManager) -> Result<()> {
     // Clone handles for the reader task.
     let app_handle = app.clone();
     let child_arc = Arc::clone(&manager.child);
+    let pending_arc = Arc::clone(&pending);
 
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
@@ -67,9 +81,25 @@ pub fn start(app: &AppHandle, manager: &SidecarManager) -> Result<()> {
                     let text = String::from_utf8_lossy(&line);
                     match serde_json::from_str::<Value>(text.trim()) {
                         Ok(payload) => {
-                            if let Err(e) =
-                                app_handle.emit("sidecar://event", &payload)
-                            {
+                            // If the message has an `id` field that matches a
+                            // pending request, resolve the channel and skip the
+                            // broadcast — this is a request-response pair.
+                            if let Some(id) = payload.get("id").and_then(|v| v.as_str()) {
+                                let maybe_tx = pending_arc
+                                    .lock()
+                                    .ok()
+                                    .and_then(|mut map| map.remove(id));
+
+                                if let Some(tx) = maybe_tx {
+                                    // Ignore send errors — the receiver may have
+                                    // already timed out and cleaned up.
+                                    let _ = tx.send(payload);
+                                    continue;
+                                }
+                            }
+
+                            // No pending match — forward as a streaming event.
+                            if let Err(e) = app_handle.emit("sidecar://event", &payload) {
                                 log::warn!("[sidecar] emit error: {e}");
                             }
                         }
@@ -97,14 +127,15 @@ pub fn start(app: &AppHandle, manager: &SidecarManager) -> Result<()> {
                     // Attempt one restart after a short delay.
                     let app2 = app_handle.clone();
                     let child_arc2 = Arc::clone(&child_arc);
+                    let pending2 = Arc::clone(&pending_arc);
                     tauri::async_runtime::spawn(async move {
                         tokio::time::sleep(Duration::from_secs(1)).await;
                         // Build a temporary manager wrapping the shared Arc so
-                        // `start_inner` can place the new child there.
+                        // `start` can place the new child there.
                         let tmp = SidecarManager {
                             child: child_arc2,
                         };
-                        if let Err(e) = start(&app2, &tmp) {
+                        if let Err(e) = start(&app2, &tmp, pending2) {
                             log::error!("[sidecar] restart failed: {e}");
                         } else {
                             log::info!("[sidecar] restarted successfully");

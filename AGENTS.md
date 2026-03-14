@@ -152,22 +152,22 @@ There is **no `AgentRegistry` class on the frontend**. Do not create one.
 The frontend holds a read-only cache of driver manifests fetched from the sidecar:
 
 ```ts
-// src/stores/drivers.store.ts
-interface DriversState {
+// src/stores/registry.store.ts
+interface RegistryState {
   manifests: AgentDriverManifest[];
   setManifests: (manifests: AgentDriverManifest[]) => void;
 }
-export const useDriversStore = create<DriversState>((set) => ({
+export const useRegistryStore = create<RegistryState>((set) => ({
   manifests: [],
   setManifests: (manifests) => set({ manifests }),
 }));
 ```
 
-Populated on app startup via a `useDrivers()` TanStack Query hook:
+Populated on app startup via a `useRegistry()` TanStack Query hook:
 - Calls `listDriverManifests()` Tauri typed wrapper
 - Tauri sends `drivers:list` to sidecar via stdin IPC
 - Sidecar responds with its registry manifests
-- Result stored in `useDriversStore`
+- Result stored in `useRegistryStore`
 
 The frontend **never registers drivers** — it only reads what the sidecar reports.
 
