@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useCreateProject } from "@/hooks/useProject";
 import { pickAndScanFolder } from "@/hooks/useProject";
 import { logger } from "@/lib/logger";
-import type { FolderScanResult } from "@/types/project";
+import type { FolderScanResult } from "@devhub/types";
 
 interface AddProjectDialogProps {
   open: boolean;

@@ -1,45 +1,31 @@
-import * as React from "react";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAgentSession, deleteAgentSession, updateAgentSession } from "@/lib/tauri";
 import {
-  discoverInstances,
-  createSession,
-  listSessions,
-  abortSession,
-  subscribeToEvents,
-  deleteSession,
-} from "@/lib/opencode";
-import {
-  createClaudeSession,
-  resumeClaudeSession,
-  abortClaudeSession,
-  onClaudeEvent,
-} from "@/lib/claude";
+  createAgentSession,
+  deleteAgentSession,
+  updateAgentSession,
+  onSidecarEvent,
+} from "@/lib/tauri";
+import { getDriverShim } from "@/lib/drivers";
 import { projectKeys } from "@/hooks/useProject";
 import { useAgentsStore } from "@/stores/agents.store";
 import { logger } from "@/lib/logger";
 import type {
   CreateAgentSessionInput,
   AgentSession,
-  OpenCodeInstance,
-  OpenCodeSession,
-  ClaudeEvent,
-  ClaudeMessage,
+  AgentStartOptions,
   McpServerConfig,
-} from "@/types/agent";
+} from "@devhub/types";
 
 // ─── Query key factories ──────────────────────────────────────────────────────
 
 export const agentKeys = {
-  instances: (projectId: string) => ["agents", "instances", projectId] as const,
-  opencodeSessions: (projectId: string, baseUrl: string) =>
-    ["agents", "opencode-sessions", projectId, baseUrl] as const,
+  sessions: (projectId: string) => ["agents", "sessions", projectId] as const,
 };
 
-// ─── Legacy hooks (SQLite-backed) ─────────────────────────────────────────────
+// ─── SQLite session CRUD ──────────────────────────────────────────────────────
 
-/** Mutation hook to create a new agent session in SQLite */
+/** Mutation: create a new agent session record in SQLite */
 export function useCreateAgentSession(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -50,7 +36,7 @@ export function useCreateAgentSession(projectId: string) {
   });
 }
 
-/** Mutation hook to delete an agent session from SQLite */
+/** Mutation: delete an agent session record from SQLite */
 export function useDeleteAgentSession(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,314 +47,217 @@ export function useDeleteAgentSession(projectId: string) {
   });
 }
 
-// ─── OpenCode discovery ───────────────────────────────────────────────────────
+// ─── Unified driver hooks ─────────────────────────────────────────────────────
 
-/**
- * Discovers OpenCode instances on the well-known port range.
- * Only runs when `enabled` is true (i.e. the Agents tab is visible).
- * Stores results in Zustand and returns the TanStack Query result.
- */
-export function useOpenCodeInstances(projectId: string, enabled = true) {
-  const setInstances = useAgentsStore((s) => s.setInstances);
-
-  return useQuery<OpenCodeInstance[]>({
-    queryKey: agentKeys.instances(projectId),
-    queryFn: async () => {
-      const instances = await discoverInstances();
-      setInstances(projectId, instances);
-      logger.info("useOpenCodeInstances", "Discovered instances", {
-        projectId,
-        count: instances.length,
-      });
-      return instances;
-    },
-    enabled: Boolean(projectId) && enabled,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: false,
-    retry: 0,
-    throwOnError: false,
-  });
-}
-
-// ─── OpenCode session list ────────────────────────────────────────────────────
-
-/**
- * Lists sessions from an OpenCode server instance.
- * Only runs when a baseUrl is provided (i.e. an instance was discovered).
- */
-export function useOpenCodeSessions(projectId: string, baseUrl: string | null) {
-  return useQuery<OpenCodeSession[]>({
-    queryKey: agentKeys.opencodeSessions(projectId, baseUrl ?? ""),
-    queryFn: () => listSessions(baseUrl!),
-    enabled: Boolean(projectId) && Boolean(baseUrl),
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: false,
-    retry: 0,
-    throwOnError: false,
-  });
-}
-
-// ─── OpenCode session creation ────────────────────────────────────────────────
-
-interface CreateOpenCodeSessionVars {
-  baseUrl: string;
-  title?: string;
+interface StartSessionArgs {
+  driverId: string;
+  projectRoot: string;
+  mcpServers: McpServerConfig[];
+  /** Initial prompt — only used by Claude which requires one at start time */
+  initialPrompt?: string;
 }
 
 /**
- * Creates a session on an OpenCode server and persists it to SQLite.
+ * Mutation: create a SQLite session record, then call the appropriate driver
+ * shim's `start()` method.  Status changes and messages are surfaced via the
+ * `onStatusChange` / `onMessage` callbacks passed through AgentStartOptions.
  */
-export function useCreateOpenCodeSession(projectId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ baseUrl, title }: CreateOpenCodeSessionVars) => {
-      const ocSession = await createSession(baseUrl, projectId, title);
-      const dbSession = await createAgentSession({
-        projectId,
-        agentType: "opencode",
-        title: ocSession.title ?? title,
-      });
-      await updateAgentSession(dbSession.id, { externalId: ocSession.id });
-      return { ocSession, dbSession };
-    },
-    onSuccess: ({ ocSession, dbSession }) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      queryClient.invalidateQueries({ queryKey: ["agents", "opencode-sessions", projectId] });
-      logger.info("useCreateOpenCodeSession", "Session created", {
-        projectId,
-        dbId: dbSession.id,
-        ocId: ocSession.id,
-      });
-    },
-    onError: (err: unknown) => {
-      logger.error("useCreateOpenCodeSession", "Failed to create session", {
-        error: String(err),
-      });
-    },
-  });
-}
-
-// ─── OpenCode session deletion ────────────────────────────────────────────────
-
-interface DeleteOpenCodeSessionVars {
-  dbId: string;
-  baseUrl: string;
-  ocSessionId: string;
-}
-
-/**
- * Deletes an OpenCode session from the server and from SQLite.
- */
-export function useDeleteOpenCodeSession(projectId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ dbId, baseUrl, ocSessionId }: DeleteOpenCodeSessionVars) => {
-      await abortSession(baseUrl, ocSessionId);
-      await deleteSession(baseUrl, ocSessionId).catch(() => {});
-      await deleteAgentSession(dbId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      queryClient.invalidateQueries({ queryKey: ["agents", "opencode-sessions", projectId] });
-    },
-    onError: (err: unknown) => {
-      logger.error("useDeleteOpenCodeSession", "Failed to delete session", {
-        error: String(err),
-      });
-    },
-  });
-}
-
-// ─── OpenCode SSE event stream ────────────────────────────────────────────────
-
-/**
- * Subscribes to the OpenCode SSE event stream for a session.
- * Cleans up the EventSource on unmount or when dependencies change.
- */
-export function useOpenCodeEventStream(
-  baseUrl: string | null,
-  sessionId: string | null,
-  onEvent: Parameters<typeof subscribeToEvents>[2]
+export function useStartSession(
+  projectId: string,
+  options: Pick<AgentStartOptions, "onMessage" | "onStatusChange" | "onError">,
 ) {
-  const onEventRef = React.useRef(onEvent);
-
-  React.useEffect(() => {
-    onEventRef.current = onEvent;
-  }, [onEvent]);
-
-  React.useEffect(() => {
-    if (!baseUrl || !sessionId) return;
-    const unsubscribe = subscribeToEvents(baseUrl, sessionId, (event) => {
-      onEventRef.current(event);
-    });
-    return unsubscribe;
-  }, [baseUrl, sessionId]);
-}
-
-// ─── Claude session creation ──────────────────────────────────────────────────
-
-interface CreateClaudeSessionArgs {
-  prompt: string;
-  mcpServers?: McpServerConfig[];
-}
-
-/**
- * Mutation: create an agent session record in SQLite, start the Claude session
- * via the sidecar, and listen for `claude:session:init` to persist the
- * Claude-native session ID (`externalId`) back to SQLite.
- */
-export function useCreateClaudeSession(projectId: string) {
   const queryClient = useQueryClient();
+  const updateSession = useAgentsStore((s) => s.updateSession);
 
   return useMutation({
-    mutationFn: async ({ prompt, mcpServers = [] }: CreateClaudeSessionArgs) => {
+    mutationFn: async ({
+      driverId,
+      projectRoot,
+      mcpServers,
+    }: StartSessionArgs) => {
+      const driver = getDriverShim(driverId);
+
       const session = await createAgentSession({
         projectId,
-        agentType: "claude",
+        agentType: driverId as "opencode" | "claude",
       });
 
-      await updateAgentSession(session.id, { status: "running" });
-
-      const unlisten = await onClaudeEvent(async (event: ClaudeEvent) => {
-        if (
-          event.type === "claude:session:init" &&
-          event.sessionId === session.id &&
-          event.claudeSessionId
-        ) {
-          try {
-            await updateAgentSession(session.id, {
-              externalId: event.claudeSessionId,
-              status: "running",
-            });
-            queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-            logger.info("useCreateClaudeSession", "claude:session:init received", {
-              sessionId: session.id,
-              claudeSessionId: event.claudeSessionId,
-            });
-          } catch (err) {
-            logger.error("useCreateClaudeSession", "Failed to persist claudeSessionId", {
-              error: String(err),
-            });
-          } finally {
-            unlisten();
-          }
-        }
+      await driver.start({
+        session,
+        projectRoot,
+        mcpServers,
+        onMessage: options.onMessage,
+        onStatusChange: (status) => {
+          updateSession({ ...session, status });
+          options.onStatusChange(status);
+        },
+        onError: options.onError,
       });
 
-      await createClaudeSession(session.id, prompt, mcpServers);
-
-      return { ...session, status: "running" } as AgentSession;
-    },
-    onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      logger.info("useCreateClaudeSession", "Claude session created", { id: session.id });
-    },
-    onError: (err: unknown) => {
-      logger.error("useCreateClaudeSession", "Failed to create Claude session", {
-        error: String(err),
-      });
-    },
-  });
-}
-
-// ─── Claude event stream ──────────────────────────────────────────────────────
-
-/**
- * Subscribe to the sidecar event stream for a specific DevHub session.
- * Calls `onMessage` for every `claude:message` event matching the sessionId.
- * Automatically unsubscribes on unmount.
- */
-export function useClaudeEventStream(
-  sessionId: string | null,
-  onMessage: (message: ClaudeMessage) => void
-): void {
-  useEffect(() => {
-    if (!sessionId) return;
-
-    let unlisten: (() => void) | null = null;
-
-    onClaudeEvent((event: ClaudeEvent) => {
-      if (event.sessionId !== sessionId) return;
-      if (event.type === "claude:message" && event.message) {
-        onMessage(event.message);
-      }
-    })
-      .then((fn) => {
-        unlisten = fn;
-      })
-      .catch((err) => {
-        logger.error("useClaudeEventStream", "Failed to subscribe to claude events", {
-          error: String(err),
-          sessionId,
-        });
-      });
-
-    return () => {
-      unlisten?.();
-    };
-  }, [sessionId, onMessage]);
-}
-
-// ─── Claude session resume ────────────────────────────────────────────────────
-
-interface ResumeClaudeSessionArgs {
-  session: AgentSession;
-  prompt: string;
-}
-
-/**
- * Mutation: resume an existing Claude session using its stored `externalId`.
- */
-export function useResumeClaudeSession(projectId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ session, prompt }: ResumeClaudeSessionArgs) => {
-      if (!session.externalId) {
-        throw new Error(
-          `Session ${session.id} has no externalId — cannot resume without a Claude session ID`
-        );
-      }
-      await updateAgentSession(session.id, { status: "running" });
-      await resumeClaudeSession(session.id, session.externalId, prompt);
       return session;
     },
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      logger.info("useResumeClaudeSession", "Claude session resumed", { id: session.id });
+      logger.info("useStartSession", "Session started", { id: session.id });
     },
     onError: (err: unknown) => {
-      logger.error("useResumeClaudeSession", "Failed to resume Claude session", {
-        error: String(err),
-      });
+      logger.error("useStartSession", "Failed to start session", { error: String(err) });
     },
   });
 }
 
-// ─── Claude session abort ─────────────────────────────────────────────────────
+interface ResumeSessionArgs {
+  session: AgentSession;
+  projectRoot: string;
+  mcpServers: McpServerConfig[];
+}
 
 /**
- * Mutation: abort a running Claude session and mark it as stopped in SQLite.
+ * Mutation: resume an existing session using its stored `externalId`.
+ * Calls the driver shim's `resume()` method.
  */
-export function useAbortClaudeSession(projectId: string) {
+export function useResumeSession(
+  projectId: string,
+  options: Pick<AgentStartOptions, "onMessage" | "onStatusChange" | "onError">,
+) {
+  const queryClient = useQueryClient();
+  const updateSession = useAgentsStore((s) => s.updateSession);
+
+  return useMutation({
+    mutationFn: async ({ session, projectRoot, mcpServers }: ResumeSessionArgs) => {
+      const driver = getDriverShim(session.agentType);
+
+      await driver.resume({
+        session,
+        projectRoot,
+        mcpServers,
+        onMessage: options.onMessage,
+        onStatusChange: (status) => {
+          updateSession({ ...session, status });
+          options.onStatusChange(status);
+        },
+        onError: options.onError,
+      });
+
+      return session;
+    },
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+      logger.info("useResumeSession", "Session resumed", { id: session.id });
+    },
+    onError: (err: unknown) => {
+      logger.error("useResumeSession", "Failed to resume session", { error: String(err) });
+    },
+  });
+}
+
+/**
+ * Mutation: send a prompt to an active session via the driver shim.
+ */
+export function useSendMessage() {
+  return useMutation({
+    mutationFn: async ({ session, prompt }: { session: AgentSession; prompt: string }) => {
+      const driver = getDriverShim(session.agentType);
+      await driver.send(session.id, prompt);
+    },
+    onError: (err: unknown) => {
+      logger.error("useSendMessage", "Failed to send message", { error: String(err) });
+    },
+  });
+}
+
+/**
+ * Mutation: abort an in-progress response for a session.
+ * Does not stop the session — the driver remains connected.
+ */
+export function useAbortSession(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (session: AgentSession) => {
-      await abortClaudeSession(session.id);
+      const driver = getDriverShim(session.agentType);
+      await driver.abort(session.id);
+      await updateAgentSession(session.id, { status: "idle" });
+      return session;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+    },
+    onError: (err: unknown) => {
+      logger.error("useAbortSession", "Failed to abort session", { error: String(err) });
+    },
+  });
+}
+
+/**
+ * Mutation: stop a session entirely and clean up driver resources.
+ */
+export function useStopSession(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (session: AgentSession) => {
+      const driver = getDriverShim(session.agentType);
+      await driver.stop(session.id);
       await updateAgentSession(session.id, { status: "stopped" });
       return session;
     },
-    onSuccess: (session) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      logger.info("useAbortClaudeSession", "Claude session aborted", { id: session.id });
     },
     onError: (err: unknown) => {
-      logger.error("useAbortClaudeSession", "Failed to abort Claude session", {
-        error: String(err),
-      });
+      logger.error("useStopSession", "Failed to stop session", { error: String(err) });
     },
+  });
+}
+
+// ─── Sidecar event stream hook ────────────────────────────────────────────────
+
+/**
+ * Subscribe to all sidecar://event payloads for the lifetime of the component.
+ * The callback is stable-ref'd so callers don't need to memoize it.
+ */
+export function useSidecarEvents(
+  callback: (payload: unknown) => void,
+  enabled = true,
+): void {
+  useEffect(() => {
+    if (!enabled) return;
+
+    let unlisten: (() => void) | null = null;
+
+    onSidecarEvent((payload) => {
+      callback(payload);
+    })
+      .then((fn) => { unlisten = fn; })
+      .catch((err: unknown) => {
+        logger.error("useSidecarEvents", "Failed to subscribe", { error: String(err) });
+      });
+
+    return () => { unlisten?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
+}
+
+// ─── Remote session list ──────────────────────────────────────────────────────
+
+/**
+ * Query: list sessions known to the remote agent server (OpenCode only).
+ * Returns an empty array for drivers that don't implement listRemoteSessions.
+ */
+export function useRemoteSessions(projectId: string, driverId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["agents", "remote-sessions", projectId, driverId],
+    queryFn: async () => {
+      const driver = getDriverShim(driverId);
+      if (!("listRemoteSessions" in driver)) return [];
+      return (driver as { listRemoteSessions: (id: string) => Promise<unknown[]> })
+        .listRemoteSessions(projectId);
+    },
+    enabled: Boolean(projectId) && enabled,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    retry: 0,
+    throwOnError: false,
   });
 }

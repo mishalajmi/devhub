@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useDeleteProject } from "@/hooks/useProject";
 import { logger } from "@/lib/logger";
-import type { Project } from "@/types/project";
+import type { Project } from "@devhub/types";
 
 interface DeleteProjectDialogProps {
   project: Project | null;

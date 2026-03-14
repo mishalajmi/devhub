@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProjectsStore } from "@/stores/projects.store";
-import type { Project } from "@/types/project";
+import type { Project } from "@devhub/types";
 
 interface SidebarProps {
   onAddProject: () => void;

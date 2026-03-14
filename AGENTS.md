@@ -61,21 +61,28 @@ devhub/
 │   │   ├── opencode.ts           # OpenCode HTTP/SSE client wrapper
 │   │   ├── claude.ts             # Claude Agent SDK bridge (via sidecar events)
 │   │   └── utils.ts              # cn(), formatting helpers
-│   └── types/                    # Shared TypeScript types
-│       ├── project.ts
-│       ├── agent.ts
-│       ├── mcp.ts
-│       ├── resource.ts
-│       └── skill.ts
 │
 ├── sidecar/                      # Node.js sidecar process
 │   ├── src/
 │   │   ├── index.ts              # Entry: IPC bridge with Tauri via stdin/stdout
+│   │   ├── driver-loader.ts      # AgentRegistry — loads builtin + local drivers
 │   │   └── adapters/
 │   │       ├── opencode.ts       # @opencode-ai/sdk session management
 │   │       └── claude.ts         # @anthropic-ai/claude-agent-sdk wrapper
 │   ├── package.json
 │   └── tsconfig.json
+│
+├── packages/
+│   └── types/                    # @devhub/types — shared types (frontend + sidecar)
+│       └── src/
+│           ├── agent.ts
+│           ├── agent-driver.ts
+│           ├── mcp.ts
+│           ├── project.ts
+│           ├── resource.ts
+│           ├── skill.ts
+│           ├── sidecar.ts
+│           └── index.ts          # barrel export
 │
 └── AGENTS.md
 ```
@@ -131,6 +138,90 @@ devhub/
 - **Feature flags** via Tauri build config, not runtime if/else chains
 - **All environment-specific values** sourced from app settings store
 - **Migration files** must be sequential and named `NNN_description.sql` (e.g. `001_init.sql`)
+
+## Agent Driver Architecture
+
+### Registry ownership — sidecar owns it
+The **sidecar is the single owner of the AgentRegistry**. It is the only process
+that can dynamically `import()` arbitrary `.ts`/`.js` driver files, use npm
+packages, and run SDK code. The frontend WebView cannot do any of this.
+
+There is **no `AgentRegistry` class on the frontend**. Do not create one.
+
+### Frontend — thin manifest cache (Zustand store)
+The frontend holds a read-only cache of driver manifests fetched from the sidecar:
+
+```ts
+// src/stores/registry.store.ts
+interface RegistryState {
+  manifests: AgentDriverManifest[];
+  setManifests: (manifests: AgentDriverManifest[]) => void;
+}
+export const useRegistryStore = create<RegistryState>((set) => ({
+  manifests: [],
+  setManifests: (manifests) => set({ manifests }),
+}));
+```
+
+Populated on app startup via a `useRegistry()` TanStack Query hook:
+- Calls `listDriverManifests()` Tauri typed wrapper
+- Tauri sends `drivers:list` to sidecar via stdin IPC
+- Sidecar responds with its registry manifests
+- Result stored in `useRegistryStore`
+
+The frontend **never registers drivers** — it only reads what the sidecar reports.
+
+### Frontend driver shims
+`src/lib/drivers/opencode.ts`, `src/lib/drivers/claude.ts` etc. are **IPC
+wrapper objects**, not registry entries. They implement `AgentDriver` by
+proxying every method call to the sidecar via `sendSidecarMessage` /
+`onSidecarEvent`. Resolved by driver id from a static map:
+
+```ts
+// src/lib/drivers/index.ts
+const shims: Record<string, AgentDriver> = {
+  opencode: opencodeDriverShim,
+  claude:   claudeDriverShim,
+};
+export function getDriverShim(id: string): AgentDriver {
+  const shim = shims[id];
+  if (!shim) throw new DriverNotFoundError(id);
+  return shim;
+}
+```
+
+Local (user-loaded) drivers registered in the sidecar get a **generic shim**
+that proxies all calls by driver id — no per-driver frontend code needed.
+
+### Shared types
+All types shared between frontend and sidecar live in `packages/types/`
+(`@devhub/types`). Import from there directly — never from `src/types/`.
+The `src/types/` directory has been deleted.
+
+```
+packages/types/src/
+  agent.ts         ← AgentSession, AgentType, OpenCodeSession, ClaudeEvent…
+  agent-driver.ts  ← AgentDriver, AgentMessage union, AgentDriverManifest…
+  mcp.ts           ← McpServer, McpServerConfig…
+  project.ts       ← Project, DirNode, FolderScanResult…
+  resource.ts      ← ProjectResource, ResourceType…
+  skill.ts         ← Skill, CreateSkillInput…
+  sidecar.ts       ← SidecarRequest, SidecarResponse, SidecarEvent
+  index.ts         ← barrel export from all files
+```
+
+### Tauri commands for driver management
+- `list_driver_manifests` — sends `drivers:list` to sidecar, returns `AgentDriverManifest[]`
+- `load_local_driver(path)` — sends `drivers:load { path }` to sidecar, returns `AgentDriverManifest`
+
+Typed wrappers in `src/lib/tauri.ts`:
+```ts
+export const listDriverManifests = (): Promise<AgentDriverManifest[]> =>
+  invoke("list_driver_manifests");
+
+export const loadLocalDriver = (path: string): Promise<AgentDriverManifest> =>
+  invoke("load_local_driver", { path });
+```
 
 ## Agent Integration Contracts
 

@@ -1,6 +1,11 @@
 export type AgentType = "opencode" | "claude";
 
-export type AgentSessionStatus = "running" | "idle" | "stopped" | "error";
+export type AgentSessionStatus =
+  | "initializing"
+  | "idle"
+  | "running"
+  | "error"
+  | "stopped";
 
 export interface AgentSession {
   id: string;
@@ -19,12 +24,10 @@ export interface CreateAgentSessionInput {
   title?: string;
 }
 
-export interface AgentMessage {
-  id: string;
-  sessionId: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp: string;
+export interface UpdateAgentSessionInput {
+  externalId?: string;
+  status?: AgentSessionStatus;
+  title?: string;
 }
 
 export interface SendMessageInput {
@@ -32,7 +35,8 @@ export interface SendMessageInput {
   content: string;
 }
 
-/** A discovered running OpenCode server instance */
+// ─── OpenCode ─────────────────────────────────────────────────────────────────
+
 export interface OpenCodeInstance {
   port: number;
   baseUrl: string;
@@ -40,7 +44,6 @@ export interface OpenCodeInstance {
   healthy: boolean;
 }
 
-/** OpenCode-specific session info from the HTTP API */
 export interface OpenCodeSession {
   id: string;
   title?: string;
@@ -48,14 +51,7 @@ export interface OpenCodeSession {
   createdAt: string;
 }
 
-/** Sidecar IPC message envelope */
-export interface SidecarMessage {
-  type: string;
-  sessionId?: string;
-  payload: unknown;
-}
-
-// ─── Claude Types ─────────────────────────────────────────────────────────────
+// ─── Claude ───────────────────────────────────────────────────────────────────
 
 export type ClaudeEventType =
   | "claude:session:init"
@@ -75,11 +71,4 @@ export interface ClaudeMessage {
   role: "assistant" | "user" | "tool";
   content: string;
   timestamp: string;
-}
-
-export interface McpServerConfig {
-  name: string;
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
 }

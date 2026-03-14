@@ -7,7 +7,7 @@ import { useMcpServersQuery } from "@/hooks/useProject";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteMcpServer, startMcpServer, stopMcpServer } from "@/lib/tauri";
 import { projectKeys } from "@/hooks/useProject";
-import type { McpServer, McpServerStatus } from "@/types/mcp";
+import type { McpServer, McpServerStatus } from "@devhub/types";
 
 interface McpPaneProps {
   projectId: string;

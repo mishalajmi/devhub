@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AgentSession, OpenCodeInstance } from "@/types/agent";
+import type { AgentSession, OpenCodeInstance } from "@devhub/types";
 
 interface AgentsState {
   /** All sessions keyed by project ID */

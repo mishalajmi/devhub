@@ -124,7 +124,12 @@ pub fn delete_agent_session(id: String, state: tauri::State<AppState>) -> Result
 /// Start the Node.js sidecar process.
 #[tauri::command]
 pub fn start_sidecar(app: tauri::AppHandle, state: tauri::State<AppState>) -> Result<(), String> {
-    sidecar::start(&app, &state.sidecar).map_err(|e| e.to_string())
+    sidecar::start(
+        &app,
+        &state.sidecar,
+        std::sync::Arc::clone(&state.pending_requests),
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// Stop the Node.js sidecar process.

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { McpServer } from "@/types/mcp";
+import type { McpServer } from "@devhub/types";
 
 interface McpState {
   serversByProject: Record<string, McpServer[]>;

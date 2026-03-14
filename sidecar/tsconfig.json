@@ -5,12 +5,15 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
     "outDir": "dist",
-    "rootDir": "src",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@devhub/types": ["../packages/types/src/index.ts"],
+      "@devhub/errors": ["../packages/errors/src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "packages/*"]
 }

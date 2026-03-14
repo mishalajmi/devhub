@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@devhub/types": "workspace:*",
+    "@devhub/errors": "workspace:*",
     "@opencode-ai/sdk": "latest"
   },
   "devDependencies": {

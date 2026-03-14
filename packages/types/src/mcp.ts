@@ -12,6 +12,13 @@ export interface McpServer {
   createdAt: string;
 }
 
+export interface McpServerConfig {
+  name: string;
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+}
+
 export interface CreateMcpServerInput {
   projectId: string;
   name: string;

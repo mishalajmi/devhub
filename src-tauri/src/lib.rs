@@ -5,6 +5,7 @@ mod commands;
 mod db;
 mod services;
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
@@ -16,6 +17,10 @@ pub struct AppState {
     pub watcher_registry: Arc<Mutex<services::file_watcher::WatcherRegistry>>,
     /// Manages the Node.js sidecar child process lifecycle.
     pub sidecar: services::sidecar::SidecarManager,
+    /// In-flight sidecar request channels, keyed by request ID.
+    /// The sidecar stdout reader resolves these directly instead of
+    /// broadcasting via `sidecar://event`.
+    pub pending_requests: services::sidecar::PendingRequests,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -33,8 +38,7 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .expect("failed to resolve app data directory");
-            std::fs::create_dir_all(&app_data_dir)
-                .expect("failed to create app data directory");
+            std::fs::create_dir_all(&app_data_dir).expect("failed to create app data directory");
 
             let db_path = app_data_dir.join("devhub.db");
             let conn = db::init(&db_path).expect("failed to initialise database");
@@ -47,12 +51,17 @@ pub fn run() {
                     services::file_watcher::WatcherRegistry::new(),
                 )),
                 sidecar: sidecar_manager,
+                pending_requests: Arc::new(Mutex::new(HashMap::default())),
             });
 
             // Start the sidecar immediately after app state is registered.
             let app_handle = app.handle().clone();
             let state = app_handle.state::<AppState>();
-            if let Err(e) = services::sidecar::start(&app_handle, &state.sidecar) {
+            if let Err(e) = services::sidecar::start(
+                &app_handle,
+                &state.sidecar,
+                Arc::clone(&state.pending_requests),
+            ) {
                 log::warn!("sidecar failed to start at launch: {e}");
             }
 
@@ -95,6 +104,9 @@ pub fn run() {
             commands::skill::create_skill,
             commands::skill::update_skill,
             commands::skill::delete_skill,
+            // Driver registry commands
+            commands::driver::list_driver_manifests,
+            commands::driver::load_local_driver,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DevHub");
