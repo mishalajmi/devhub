@@ -39,3 +39,4 @@ src-tauri/binaries/devhub-sidecar-*
 # tasks
 tasks/
 sidecar/bun.lock
+nul

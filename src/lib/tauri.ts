@@ -13,6 +13,7 @@ import type {
   FolderScanResult,
   DirNode,
   AgentDriverManifest,
+  RemoteSession,
 } from "@devhub/types";
 import type { AgentSession, CreateAgentSessionInput } from "@devhub/types";
 import type {
@@ -185,3 +186,10 @@ export const listDriverManifests = (): Promise<AgentDriverManifest[]> =>
 
 export const loadLocalDriver = (path: string): Promise<AgentDriverManifest> =>
   invoke("load_local_driver", { path });
+
+/** List remote sessions for a specific driver (e.g. for OpenCode session picker) */
+export const listDriverSessions = (
+  driverId: string,
+  projectId: string,
+): Promise<RemoteSession[]> =>
+  invoke("list_driver_sessions", { driverId, projectId });
