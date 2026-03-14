@@ -29,7 +29,7 @@ import { DriverValidationError } from "@devhub/errors";
 export async function loadBuiltinDrivers(): Promise<void> {
   const builtins: Array<() => Promise<{ driver: AgentDriver; version?: string }>> = [
     async () => {
-      const mod = await import("./adapters/opencode.js");
+      const mod = await import("./drivers/opencode.js");
       // The existing opencodeAdapter is the legacy adapter — the new driver
       // will be at mod.opencodeDriver once chunk 44 is implemented.
       // For now, skip if the named export doesn't exist yet.
@@ -42,7 +42,7 @@ export async function loadBuiltinDrivers(): Promise<void> {
       return { driver: (mod as Record<string, unknown>).opencodeDriver as AgentDriver };
     },
     async () => {
-      const mod = await import("./adapters/claude.js");
+      const mod = await import("./drivers/claude.js");
       if (!("claudeDriver" in mod)) {
         process.stderr.write(
           "[driver-loader] claudeDriver not yet exported from adapters/claude — skipping builtin registration\n"
