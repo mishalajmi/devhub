@@ -14,6 +14,7 @@ import type {
   DirNode,
   AgentDriverManifest,
   RemoteSession,
+  DriverDispatchMessage,
 } from "@devhub/types";
 import type { AgentSession, CreateAgentSessionInput } from "@devhub/types";
 import type {
@@ -171,8 +172,9 @@ export const startSidecar = (): Promise<void> => invoke("start_sidecar");
 export const stopSidecar = (): Promise<void> => invoke("stop_sidecar");
 
 /** Send a JSON message to the sidecar via stdin */
-export const sendSidecarMessage = (message: object): Promise<void> =>
-  invoke("send_sidecar_message", { message });
+export const sendSidecarMessage = (
+  message: DriverDispatchMessage,
+): Promise<void> => invoke("send_sidecar_message", { message });
 
 /** Subscribe to events forwarded from the sidecar's stdout */
 export const onSidecarEvent = (

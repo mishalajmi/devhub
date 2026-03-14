@@ -14,7 +14,6 @@
  *   { id: string, ok: false, error: string }
  */
 
-import { claudeAdapter } from "./adapters/claude.js";
 import {
   loadBuiltinDrivers,
   loadLocalDriver,
@@ -58,8 +57,6 @@ async function handle(msg: IncomingMessage): Promise<void> {
 
     if (msg.type.startsWith("driver:")) {
       result = await handleDriverDispatch(msg as unknown as DriverDispatchMessage);
-    } else if (msg.type.startsWith("claude:")) {
-      result = await claudeAdapter(msg.type, msg.payload, msg.id);
     } else if (msg.type.startsWith("drivers:")) {
       result = await handleDrivers(msg.type, msg.payload);
     } else {
