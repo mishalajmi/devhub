@@ -1,7 +1,11 @@
 import * as React from "react";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAgentSession, deleteAgentSession, updateAgentSession } from "@/lib/tauri";
+import {
+  createAgentSession,
+  deleteAgentSession,
+  updateAgentSession,
+} from "@/lib/tauri";
 import {
   discoverInstances,
   createSession,
@@ -9,13 +13,13 @@ import {
   abortSession,
   subscribeToEvents,
   deleteSession,
-} from "@/lib/opencode";
+} from "@/lib/drivers/opencode";
 import {
   createClaudeSession,
   resumeClaudeSession,
   abortClaudeSession,
   onClaudeEvent,
-} from "@/lib/claude";
+} from "@/lib/drivers/claude";
 import { projectKeys } from "@/hooks/useProject";
 import { useAgentsStore } from "@/stores/agents.store";
 import { logger } from "@/lib/logger";
@@ -45,7 +49,9 @@ export function useCreateAgentSession(projectId: string) {
   return useMutation({
     mutationFn: (input: CreateAgentSessionInput) => createAgentSession(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
     },
   });
 }
@@ -56,7 +62,9 @@ export function useDeleteAgentSession(projectId: string) {
   return useMutation({
     mutationFn: (id: string) => deleteAgentSession(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
     },
   });
 }
@@ -133,8 +141,12 @@ export function useCreateOpenCodeSession(projectId: string) {
       return { ocSession, dbSession };
     },
     onSuccess: ({ ocSession, dbSession }) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      queryClient.invalidateQueries({ queryKey: ["agents", "opencode-sessions", projectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["agents", "opencode-sessions", projectId],
+      });
       logger.info("useCreateOpenCodeSession", "Session created", {
         projectId,
         dbId: dbSession.id,
@@ -164,14 +176,22 @@ export function useDeleteOpenCodeSession(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ dbId, baseUrl, ocSessionId }: DeleteOpenCodeSessionVars) => {
+    mutationFn: async ({
+      dbId,
+      baseUrl,
+      ocSessionId,
+    }: DeleteOpenCodeSessionVars) => {
       await abortSession(baseUrl, ocSessionId);
       await deleteSession(baseUrl, ocSessionId).catch(() => {});
       await deleteAgentSession(dbId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      queryClient.invalidateQueries({ queryKey: ["agents", "opencode-sessions", projectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["agents", "opencode-sessions", projectId],
+      });
     },
     onError: (err: unknown) => {
       logger.error("useDeleteOpenCodeSession", "Failed to delete session", {
@@ -190,7 +210,7 @@ export function useDeleteOpenCodeSession(projectId: string) {
 export function useOpenCodeEventStream(
   baseUrl: string | null,
   sessionId: string | null,
-  onEvent: Parameters<typeof subscribeToEvents>[2]
+  onEvent: Parameters<typeof subscribeToEvents>[2],
 ) {
   const onEventRef = React.useRef(onEvent);
 
@@ -223,7 +243,10 @@ export function useCreateClaudeSession(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ prompt, mcpServers = [] }: CreateClaudeSessionArgs) => {
+    mutationFn: async ({
+      prompt,
+      mcpServers = [],
+    }: CreateClaudeSessionArgs) => {
       const session = await createAgentSession({
         projectId,
         agentType: "claude",
@@ -242,15 +265,25 @@ export function useCreateClaudeSession(projectId: string) {
               externalId: event.claudeSessionId,
               status: "running",
             });
-            queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-            logger.info("useCreateClaudeSession", "claude:session:init received", {
-              sessionId: session.id,
-              claudeSessionId: event.claudeSessionId,
+            queryClient.invalidateQueries({
+              queryKey: projectKeys.sessions(projectId),
             });
+            logger.info(
+              "useCreateClaudeSession",
+              "claude:session:init received",
+              {
+                sessionId: session.id,
+                claudeSessionId: event.claudeSessionId,
+              },
+            );
           } catch (err) {
-            logger.error("useCreateClaudeSession", "Failed to persist claudeSessionId", {
-              error: String(err),
-            });
+            logger.error(
+              "useCreateClaudeSession",
+              "Failed to persist claudeSessionId",
+              {
+                error: String(err),
+              },
+            );
           } finally {
             unlisten();
           }
@@ -262,13 +295,21 @@ export function useCreateClaudeSession(projectId: string) {
       return { ...session, status: "running" } as AgentSession;
     },
     onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      logger.info("useCreateClaudeSession", "Claude session created", { id: session.id });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
+      logger.info("useCreateClaudeSession", "Claude session created", {
+        id: session.id,
+      });
     },
     onError: (err: unknown) => {
-      logger.error("useCreateClaudeSession", "Failed to create Claude session", {
-        error: String(err),
-      });
+      logger.error(
+        "useCreateClaudeSession",
+        "Failed to create Claude session",
+        {
+          error: String(err),
+        },
+      );
     },
   });
 }
@@ -282,7 +323,7 @@ export function useCreateClaudeSession(projectId: string) {
  */
 export function useClaudeEventStream(
   sessionId: string | null,
-  onMessage: (message: ClaudeMessage) => void
+  onMessage: (message: ClaudeMessage) => void,
 ): void {
   useEffect(() => {
     if (!sessionId) return;
@@ -299,10 +340,14 @@ export function useClaudeEventStream(
         unlisten = fn;
       })
       .catch((err) => {
-        logger.error("useClaudeEventStream", "Failed to subscribe to claude events", {
-          error: String(err),
-          sessionId,
-        });
+        logger.error(
+          "useClaudeEventStream",
+          "Failed to subscribe to claude events",
+          {
+            error: String(err),
+            sessionId,
+          },
+        );
       });
 
     return () => {
@@ -328,7 +373,7 @@ export function useResumeClaudeSession(projectId: string) {
     mutationFn: async ({ session, prompt }: ResumeClaudeSessionArgs) => {
       if (!session.externalId) {
         throw new Error(
-          `Session ${session.id} has no externalId — cannot resume without a Claude session ID`
+          `Session ${session.id} has no externalId — cannot resume without a Claude session ID`,
         );
       }
       await updateAgentSession(session.id, { status: "running" });
@@ -336,13 +381,21 @@ export function useResumeClaudeSession(projectId: string) {
       return session;
     },
     onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      logger.info("useResumeClaudeSession", "Claude session resumed", { id: session.id });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
+      logger.info("useResumeClaudeSession", "Claude session resumed", {
+        id: session.id,
+      });
     },
     onError: (err: unknown) => {
-      logger.error("useResumeClaudeSession", "Failed to resume Claude session", {
-        error: String(err),
-      });
+      logger.error(
+        "useResumeClaudeSession",
+        "Failed to resume Claude session",
+        {
+          error: String(err),
+        },
+      );
     },
   });
 }
@@ -362,8 +415,12 @@ export function useAbortClaudeSession(projectId: string) {
       return session;
     },
     onSuccess: (session) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.sessions(projectId) });
-      logger.info("useAbortClaudeSession", "Claude session aborted", { id: session.id });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.sessions(projectId),
+      });
+      logger.info("useAbortClaudeSession", "Claude session aborted", {
+        id: session.id,
+      });
     },
     onError: (err: unknown) => {
       logger.error("useAbortClaudeSession", "Failed to abort Claude session", {
