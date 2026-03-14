@@ -6,17 +6,31 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { Project, CreateProjectInput, UpdateProjectInput, FolderScanResult, DirNode } from "@devhub/types";
+import type {
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  FolderScanResult,
+  DirNode,
+  AgentDriverManifest,
+} from "@devhub/types";
 import type { AgentSession, CreateAgentSessionInput } from "@devhub/types";
-import type { McpServer, CreateMcpServerInput, UpdateMcpServerInput } from "@devhub/types";
-import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@devhub/types";
+import type {
+  McpServer,
+  CreateMcpServerInput,
+  UpdateMcpServerInput,
+} from "@devhub/types";
+import type {
+  ProjectResource,
+  CreateResourceInput,
+  UpdateResourceInput,
+} from "@devhub/types";
 import type { Skill, CreateSkillInput, UpdateSkillInput } from "@devhub/types";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 /** List all projects stored in the local DB */
-export const listProjects = (): Promise<Project[]> =>
-  invoke("list_projects");
+export const listProjects = (): Promise<Project[]> => invoke("list_projects");
 
 /** Get a single project by ID */
 export const getProject = (id: string): Promise<Project> =>
@@ -46,7 +60,11 @@ export const listDirTree = (rootPath: string): Promise<DirNode[]> =>
 
 /** Open a native folder-picker dialog; returns the selected path or null */
 export const pickFolder = (): Promise<string | null> =>
-  openDialog({ directory: true, multiple: false, title: "Select project folder" }) as Promise<string | null>;
+  openDialog({
+    directory: true,
+    multiple: false,
+    title: "Select project folder",
+  }) as Promise<string | null>;
 
 /** Start watching a project's root directory for FS changes */
 export const watchProject = (projectId: string): Promise<void> =>
@@ -63,15 +81,15 @@ export const listAgentSessions = (projectId: string): Promise<AgentSession[]> =>
   invoke("list_agent_sessions", { projectId });
 
 /** Create a new agent session record */
-export const createAgentSession = (input: CreateAgentSessionInput): Promise<AgentSession> =>
-  invoke("create_agent_session", { input });
+export const createAgentSession = (
+  input: CreateAgentSessionInput,
+): Promise<AgentSession> => invoke("create_agent_session", { input });
 
 /** Update agent session status or title */
 export const updateAgentSession = (
   id: string,
-  updates: Partial<Pick<AgentSession, "status" | "title" | "externalId">>
-): Promise<AgentSession> =>
-  invoke("update_agent_session", { id, updates });
+  updates: Partial<Pick<AgentSession, "status" | "title" | "externalId">>,
+): Promise<AgentSession> => invoke("update_agent_session", { id, updates });
 
 /** Delete an agent session */
 export const deleteAgentSession = (id: string): Promise<void> =>
@@ -84,12 +102,14 @@ export const listMcpServers = (projectId: string): Promise<McpServer[]> =>
   invoke("list_mcp_servers", { projectId });
 
 /** Create a new MCP server config */
-export const createMcpServer = (input: CreateMcpServerInput): Promise<McpServer> =>
-  invoke("create_mcp_server", { input });
+export const createMcpServer = (
+  input: CreateMcpServerInput,
+): Promise<McpServer> => invoke("create_mcp_server", { input });
 
 /** Update an MCP server config */
-export const updateMcpServer = (input: UpdateMcpServerInput): Promise<McpServer> =>
-  invoke("update_mcp_server", { input });
+export const updateMcpServer = (
+  input: UpdateMcpServerInput,
+): Promise<McpServer> => invoke("update_mcp_server", { input });
 
 /** Delete an MCP server config (stops it first if running) */
 export const deleteMcpServer = (id: string): Promise<void> =>
@@ -110,12 +130,14 @@ export const listResources = (projectId: string): Promise<ProjectResource[]> =>
   invoke("list_resources", { projectId });
 
 /** Create a resource entry */
-export const createResource = (input: CreateResourceInput): Promise<ProjectResource> =>
-  invoke("create_resource", { input });
+export const createResource = (
+  input: CreateResourceInput,
+): Promise<ProjectResource> => invoke("create_resource", { input });
 
 /** Update a resource entry */
-export const updateResource = (input: UpdateResourceInput): Promise<ProjectResource> =>
-  invoke("update_resource", { input });
+export const updateResource = (
+  input: UpdateResourceInput,
+): Promise<ProjectResource> => invoke("update_resource", { input });
 
 /** Delete a resource entry */
 export const deleteResource = (id: string): Promise<void> =>
@@ -142,12 +164,10 @@ export const deleteSkill = (id: string): Promise<void> =>
 // ─── Sidecar ──────────────────────────────────────────────────────────────────
 
 /** Start the Node.js sidecar process */
-export const startSidecar = (): Promise<void> =>
-  invoke("start_sidecar");
+export const startSidecar = (): Promise<void> => invoke("start_sidecar");
 
 /** Stop the Node.js sidecar process */
-export const stopSidecar = (): Promise<void> =>
-  invoke("stop_sidecar");
+export const stopSidecar = (): Promise<void> => invoke("stop_sidecar");
 
 /** Send a JSON message to the sidecar via stdin */
 export const sendSidecarMessage = (message: object): Promise<void> =>
@@ -155,6 +175,13 @@ export const sendSidecarMessage = (message: object): Promise<void> =>
 
 /** Subscribe to events forwarded from the sidecar's stdout */
 export const onSidecarEvent = (
-  callback: (payload: unknown) => void
+  callback: (payload: unknown) => void,
 ): Promise<UnlistenFn> =>
   listen("sidecar://event", (event) => callback(event.payload));
+
+// ─── Registry ──────────────────────────────────────────────────────────────────
+export const listDriverManifests = (): Promise<AgentDriverManifest[]> =>
+  invoke("list_driver_manifests");
+
+export const loadLocalDriver = (path: string): Promise<AgentDriverManifest> =>
+  invoke("load_local_driver", { path });

@@ -8,5 +8,3 @@ export class DevHubError extends Error {
     }
   }
 }
-
-// ─── Agent registry errors ────────────────────────────────────────────────────

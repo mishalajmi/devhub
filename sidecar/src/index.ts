@@ -20,9 +20,8 @@ import {
   loadBuiltinDrivers,
   loadLocalDriver,
   loadLocalDriversFromDir,
-  listManifests,
-  unregisterDriver,
 } from "./driver-loader.js";
+import { Registry } from "./agent-registry";
 
 type IncomingMessage = {
   id: string;
@@ -76,7 +75,7 @@ async function handleDrivers(
 ): Promise<unknown> {
   switch (type) {
     case "drivers:list":
-      return listManifests();
+      return Registry.listManifests();
 
     case "drivers:load": {
       const { path: filePath } = payload as { path: string };
@@ -96,7 +95,7 @@ async function handleDrivers(
       if (!id || typeof id !== "string") {
         throw new Error("drivers:unregister requires a non-empty string `id` field");
       }
-      unregisterDriver(id);
+      Registry.unregisterDriver(id);
       return { unregistered: true };
     }
 

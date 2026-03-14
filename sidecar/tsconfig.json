@@ -11,8 +11,9 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
-      "@devhub/types": ["../packages/types/src/index.ts"]
+      "@devhub/types": ["../packages/types/src/index.ts"],
+      "@devhub/errors": ["../packages/errors/src/index.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "packages/*"]
 }

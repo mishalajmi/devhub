@@ -18,15 +18,16 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@devhub/types": ["./packages/types/src/index.ts"]
+      "@devhub/types": ["./packages/types/src/index.ts"],
+      "@devhub/errors": ["./packages/errors/src/index.ts"],
     },
 
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src", "packages/*"],
+  "references": [{ "path": "./tsconfig.node.json" }],
 }

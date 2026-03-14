@@ -18,122 +18,8 @@ import type {
   AgentDriver,
   AgentDriverManifest as DriverManifest,
 } from "@devhub/types";
-import { isDriverWithRemoteSessions } from "@devhub/types";
-
-export type { DriverManifest };
-
-// ─── Registry ─────────────────────────────────────────────────────────────────
-
-interface RegistryEntry {
-  manifest: DriverManifest;
-  driver: AgentDriver;
-}
-
-const registry = new Map<string, RegistryEntry>();
-
-/** Register a driver. Throws if a driver with the same id is already registered. */
-function registerDriver(
-  driver: AgentDriver,
-  source: "builtin" | "local" = "builtin",
-  filePath?: string,
-  version = "1.0.0"
-): DriverManifest {
-  if (registry.has(driver.id)) {
-    throw new Error(`Driver "${driver.id}" is already registered`);
-  }
-
-  const manifest: DriverManifest = {
-    id: driver.id,
-    name: driver.name,
-    description: driver.description,
-    version,
-    source,
-    path: filePath,
-    supportsResume: driver.supportsResume,
-    supportsMcp: driver.supportsMcp,
-    hasRemoteSessions: isDriverWithRemoteSessions(driver),
-  };
-
-  registry.set(driver.id, { manifest, driver });
-  process.stderr.write(`[driver-loader] registered driver: ${driver.id} (${source})\n`);
-  return manifest;
-}
-
-/** Unregister a driver by id. Throws if not found. */
-export function unregisterDriver(id: string): void {
-  if (!registry.has(id)) {
-    throw new Error(`Driver "${id}" is not registered`);
-  }
-  registry.delete(id);
-  process.stderr.write(`[driver-loader] unregistered driver: ${id}\n`);
-}
-
-/** Get a registered driver by id. Throws if not found. */
-export function getDriver(id: string): AgentDriver {
-  const entry = registry.get(id);
-  if (!entry) throw new Error(`No driver registered with id: "${id}"`);
-  return entry.driver;
-}
-
-/** List all registered driver manifests, sorted by name. */
-export function listManifests(): DriverManifest[] {
-  return [...registry.values()]
-    .map(({ manifest }) => manifest)
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-const REQUIRED_METHODS = ["start", "resume", "stop", "send", "abort"] as const;
-const REQUIRED_FIELDS = ["id", "name", "description", "supportsResume", "supportsMcp"] as const;
-
-/**
- * Validate that a dynamically imported module export looks like an AgentDriver.
- * Returns a descriptive error string if invalid, null if valid.
- */
-function validateDriver(candidate: unknown): string | null {
-  if (!candidate || typeof candidate !== "object") {
-    return "exported value is not an object";
-  }
-
-  const obj = candidate as Record<string, unknown>;
-
-  for (const field of REQUIRED_FIELDS) {
-    if (!(field in obj)) {
-      return `missing required field: "${field}"`;
-    }
-  }
-
-  if (typeof obj.id !== "string" || !obj.id.trim()) {
-    return `"id" must be a non-empty string`;
-  }
-
-  if (typeof obj.name !== "string" || !obj.name.trim()) {
-    return `"name" must be a non-empty string`;
-  }
-
-  if (typeof obj.description !== "string") {
-    return `"description" must be a string`;
-  }
-
-  if (typeof obj.supportsResume !== "boolean") {
-    return `"supportsResume" must be a boolean`;
-  }
-
-  if (typeof obj.supportsMcp !== "boolean") {
-    return `"supportsMcp" must be a boolean`;
-  }
-
-  for (const method of REQUIRED_METHODS) {
-    if (typeof obj[method] !== "function") {
-      return `missing required method: "${method}"`;
-    }
-  }
-
-  return null;
-}
-
-// ─── Built-in driver registration ─────────────────────────────────────────────
+import { Registry, validateDriver } from "./agent-registry.js";
+import { DriverValidationError } from "@devhub/errors";
 
 /**
  * Register all built-in drivers.
@@ -172,15 +58,15 @@ export async function loadBuiltinDrivers(): Promise<void> {
       const { driver, version } = await load();
       if (!driver) continue;
 
-      const validationError = validateDriver(driver);
-      if (validationError) {
+      const validationErrors = validateDriver(driver);
+      if (validationErrors) {
         process.stderr.write(
-          `[driver-loader] builtin driver failed validation: ${validationError}\n`
+          `[driver-loader] builtin driver failed validation: ${validationErrors}\n`
         );
-        continue;
+        throw new DriverValidationError(validationErrors);
       }
 
-      registerDriver(driver, "builtin", undefined, version ?? "1.0.0");
+      Registry.registerDriver(driver, "builtin", undefined, version ?? "1.0.0");
     } catch (err) {
       process.stderr.write(
         `[driver-loader] failed to load builtin driver: ${err instanceof Error ? err.message : String(err)}\n`
@@ -242,14 +128,14 @@ export async function loadLocalDriver(filePath: string): Promise<DriverManifest>
   const driver = candidate as AgentDriver;
 
   // If this driver id is already registered (e.g. hot-reload), unregister first
-  if (registry.has(driver.id)) {
+  if (Registry.has(driver.id)) {
     process.stderr.write(
       `[driver-loader] re-registering existing driver: ${driver.id}\n`
     );
-    registry.delete(driver.id);
+    Registry.unregisterDriver(driver.id);
   }
 
-  return registerDriver(driver, "local", resolved);
+  return Registry.registerDriver(driver, "local", resolved);
 }
 
 /**
