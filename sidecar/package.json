@@ -11,9 +11,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@devhub/types": "workspace:*",
     "@devhub/errors": "workspace:*",
-    "@opencode-ai/sdk": "latest"
+    "@devhub/types": "workspace:*",
+    "@opencode-ai/sdk": "latest",
+    "@anthropic-ai/claude-agent-sdk": "latest"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

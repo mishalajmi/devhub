@@ -144,9 +144,9 @@ function mapClaudeMessage(
   return msgs;
 }
 
-// ─── Shim implementation ──────────────────────────────────────────────────────
+// ─── Proxy implementation ─────────────────────────────────────────────────────
 
-export const claudeDriverShim: AgentDriver = {
+export const claudeDriverProxy: AgentDriver = {
   id: "claude",
   name: "Claude",
   description:

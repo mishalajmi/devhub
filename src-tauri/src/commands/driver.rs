@@ -86,3 +86,23 @@ pub async fn load_local_driver(
 ) -> Result<Value, String> {
     sidecar_request(&state, "drivers:load", json!({ "path": path })).await
 }
+
+/// List remote sessions for a specific driver.
+///
+/// Sends `driver:list-sessions` to the sidecar and returns the array of
+/// `RemoteSession` objects.  Uses the same oneshot-channel pattern as the
+/// other driver commands so the result is returned directly to the caller.
+#[tauri::command]
+pub async fn list_driver_sessions(
+    driver_id: String,
+    project_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<Value>, String> {
+    let result = sidecar_request(
+        &state,
+        "driver:list-sessions",
+        json!({ "driverId": driver_id, "projectId": project_id }),
+    )
+    .await?;
+    serde_json::from_value::<Vec<Value>>(result).map_err(|e| e.to_string())
+}

@@ -14,7 +14,6 @@
  *   { id: string, ok: false, error: string }
  */
 
-import { opencodeAdapter } from "./adapters/opencode";
 import { claudeAdapter } from "./adapters/claude.js";
 import {
   loadBuiltinDrivers,
@@ -22,6 +21,15 @@ import {
   loadLocalDriversFromDir,
 } from "./driver-loader.js";
 import { Registry } from "./agent-registry";
+import type {
+  AgentSession,
+  AgentStartOptions,
+  AgentType,
+  DriverDispatchMessage,
+  DriverDispatchResult,
+} from "@devhub/types";
+import { isDriverWithRemoteSessions } from "@devhub/types";
+import { AgentCapabilityNotSupported } from "@devhub/errors";
 
 type IncomingMessage = {
   id: string;
@@ -48,8 +56,8 @@ async function handle(msg: IncomingMessage): Promise<void> {
   try {
     let result: unknown;
 
-    if (msg.type.startsWith("opencode:")) {
-      result = await opencodeAdapter(msg.type, msg.payload);
+    if (msg.type.startsWith("driver:")) {
+      result = await handleDriverDispatch(msg as unknown as DriverDispatchMessage);
     } else if (msg.type.startsWith("claude:")) {
       result = await claudeAdapter(msg.type, msg.payload, msg.id);
     } else if (msg.type.startsWith("drivers:")) {
@@ -101,6 +109,83 @@ async function handleDrivers(
 
     default:
       throw new Error(`Unknown drivers message type: ${type}`);
+  }
+}
+
+async function handleDriverDispatch(
+  msg: DriverDispatchMessage,
+): Promise<DriverDispatchResult> {
+  const { driverId } = msg.payload;
+  const driver = Registry.getDriver(driverId);
+
+  switch (msg.type) {
+    case "driver:start":
+    case "driver:resume": {
+      const { sessionId, projectId, projectRoot, mcpServers, title } = msg.payload;
+      const externalId = msg.type === "driver:resume" ? msg.payload.externalId : undefined;
+
+      const session: AgentSession = {
+        id: sessionId,
+        projectId,
+        agentType: driverId as AgentType,
+        externalId: externalId ?? null,
+        status: "initializing",
+        title: title ?? null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const options: AgentStartOptions = {
+        session,
+        projectRoot,
+        mcpServers: mcpServers ?? [],
+        onMessage:      (m)      => emit("driver:message", { driverId, sessionId, message: m }),
+        onStatusChange: (status) => emit("driver:status",  { driverId, sessionId, status }),
+        onError:        (err)    => emit("driver:error",   { driverId, sessionId, error: err.message }),
+      };
+
+      const fn = msg.type === "driver:resume"
+        ? driver.resume.bind(driver)
+        : driver.start.bind(driver);
+
+      fn(options).catch((err: unknown) =>
+        emit("driver:error", { driverId, sessionId, error: String(err) }),
+      );
+
+      return { started: true, sessionId };
+    }
+
+    case "driver:stop": {
+      const { sessionId } = msg.payload;
+      await driver.stop(sessionId);
+      return { stopped: true };
+    }
+
+    case "driver:send": {
+      const { sessionId, prompt } = msg.payload;
+      await driver.send(sessionId, prompt);
+      return { sent: true };
+    }
+
+    case "driver:abort": {
+      const { sessionId } = msg.payload;
+      await driver.abort(sessionId);
+      return { aborted: true };
+    }
+
+    case "driver:inject-mcp": {
+      const { sessionId, server } = msg.payload;
+      if (!driver.injectMcp) throw new AgentCapabilityNotSupported("mcp injection");
+      await driver.injectMcp(sessionId, server);
+      return { injected: true };
+    }
+
+    case "driver:list-sessions": {
+      const { projectId } = msg.payload;
+      if (!isDriverWithRemoteSessions(driver))
+        throw new AgentCapabilityNotSupported("listing remote sessions");
+      return driver.listRemoteSessions(projectId);
+    }
   }
 }
 

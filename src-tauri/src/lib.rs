@@ -107,6 +107,7 @@ pub fn run() {
             // Driver registry commands
             commands::driver::list_driver_manifests,
             commands::driver::load_local_driver,
+            commands::driver::list_driver_sessions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DevHub");

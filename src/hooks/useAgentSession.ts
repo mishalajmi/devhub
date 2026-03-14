@@ -6,7 +6,7 @@ import {
   updateAgentSession,
   onSidecarEvent,
 } from "@/lib/tauri";
-import { getDriverShim } from "@/lib/drivers";
+import { getDriverProxy } from "@/lib/drivers";
 import { projectKeys } from "@/hooks/useProject";
 import { useAgentsStore } from "@/stores/agents.store";
 import { logger } from "@/lib/logger";
@@ -75,7 +75,7 @@ export function useStartSession(
       projectRoot,
       mcpServers,
     }: StartSessionArgs) => {
-      const driver = getDriverShim(driverId);
+      const driver = getDriverProxy(driverId);
 
       const session = await createAgentSession({
         projectId,
@@ -125,7 +125,7 @@ export function useResumeSession(
 
   return useMutation({
     mutationFn: async ({ session, projectRoot, mcpServers }: ResumeSessionArgs) => {
-      const driver = getDriverShim(session.agentType);
+      const driver = getDriverProxy(session.agentType);
 
       await driver.resume({
         session,
@@ -157,7 +157,7 @@ export function useResumeSession(
 export function useSendMessage() {
   return useMutation({
     mutationFn: async ({ session, prompt }: { session: AgentSession; prompt: string }) => {
-      const driver = getDriverShim(session.agentType);
+      const driver = getDriverProxy(session.agentType);
       await driver.send(session.id, prompt);
     },
     onError: (err: unknown) => {
@@ -175,7 +175,7 @@ export function useAbortSession(projectId: string) {
 
   return useMutation({
     mutationFn: async (session: AgentSession) => {
-      const driver = getDriverShim(session.agentType);
+      const driver = getDriverProxy(session.agentType);
       await driver.abort(session.id);
       await updateAgentSession(session.id, { status: "idle" });
       return session;
@@ -197,7 +197,7 @@ export function useStopSession(projectId: string) {
 
   return useMutation({
     mutationFn: async (session: AgentSession) => {
-      const driver = getDriverShim(session.agentType);
+      const driver = getDriverProxy(session.agentType);
       await driver.stop(session.id);
       await updateAgentSession(session.id, { status: "stopped" });
       return session;
@@ -249,7 +249,7 @@ export function useRemoteSessions(projectId: string, driverId: string, enabled =
   return useQuery({
     queryKey: ["agents", "remote-sessions", projectId, driverId],
     queryFn: async () => {
-      const driver = getDriverShim(driverId);
+      const driver = getDriverProxy(driverId);
       if (!("listRemoteSessions" in driver)) return [];
       return (driver as { listRemoteSessions: (id: string) => Promise<unknown[]> })
         .listRemoteSessions(projectId);

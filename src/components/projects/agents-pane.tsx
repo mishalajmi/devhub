@@ -1,8 +1,8 @@
 /**
  * AgentsPane — session manager UI.
  *
- * TODO (chunk 13): Implement full session manager UI using the driver shim
- * model (getDriverShim, useStartSession, useResumeSession, useSendMessage,
+ * TODO (chunk 13): Implement full session manager UI using the driver proxy
+ * model (getDriverProxy, useStartSession, useResumeSession, useSendMessage,
  * useAbortSession, useStopSession, useRemoteSessions).
  */
 

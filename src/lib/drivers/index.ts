@@ -1,31 +1,111 @@
 /**
- * Frontend driver shim registry.
+ * Frontend driver proxy registry.
  *
- * Maps driver IDs to their IPC shim objects.  Builtin shims (opencode, claude)
- * are statically declared here.  Local (user-loaded) drivers registered in the
- * sidecar get the generic proxy treatment — all calls are routed by driver id.
+ * Maps driver IDs to their IPC proxy objects.  Builtin proxies (opencode, claude)
+ * are statically declared.  User-loaded local drivers registered in the sidecar
+ * get a generic proxy — all calls are routed by driver id without any
+ * per-driver frontend code.
  *
  * Usage:
- *   import { getDriverShim } from "@/lib/drivers";
- *   const driver = getDriverShim("opencode"); // throws DriverNotFoundError if unknown
+ *   import { getDriverProxy } from "@/lib/drivers";
+ *   const driver = getDriverProxy("opencode");
+ *   const userDriver = getDriverProxy("my-custom-driver"); // generic proxy
  */
 
-import { DriverNotFoundError } from "@devhub/errors";
-import type { AgentDriver } from "@devhub/types";
-import { opencodeDriverShim } from "./opencode";
-import { claudeDriverShim } from "./claude";
+import type { AgentDriver, AgentStartOptions } from "@devhub/types";
+import { sendSidecarMessage } from "@/lib/tauri";
+import { wireDriverEvents } from "./shared";
+import { opencodeDriverProxy } from "./opencode";
+import { claudeDriverProxy } from "./claude";
 
-const shims: Record<string, AgentDriver> = {
-  opencode: opencodeDriverShim,
-  claude: claudeDriverShim,
+const proxies: Record<string, AgentDriver> = {
+  opencode: opencodeDriverProxy,
+  claude: claudeDriverProxy,
 };
 
+// ─── Generic proxy factory ────────────────────────────────────────────────────
+
 /**
- * Return the frontend IPC shim for a given driver id.
- * Throws DriverNotFoundError if no shim is registered for that id.
+ * Build a generic driver:* proxy for any driver id registered in the sidecar.
+ * Used for user-loaded local drivers that have no dedicated frontend proxy file.
  */
-export function getDriverShim(id: string): AgentDriver {
-  const shim = shims[id];
-  if (!shim) throw new DriverNotFoundError(id);
-  return shim;
+function createGenericProxy(id: string): AgentDriver {
+  const listeners = new Map<string, () => void>();
+
+  return {
+    id,
+    name: id,
+    description: `User-loaded driver: ${id}`,
+    supportsResume: false,
+    supportsMcp: false,
+
+    async start(options: AgentStartOptions): Promise<void> {
+      options.onStatusChange("initializing");
+      const unlisten = await wireDriverEvents(id, options.session.id, options);
+      listeners.set(options.session.id, unlisten);
+      await sendSidecarMessage({
+        type: "driver:start",
+        payload: {
+          driverId: id,
+          sessionId: options.session.id,
+          projectId: options.session.projectId,
+          projectRoot: options.projectRoot,
+          mcpServers: options.mcpServers,
+          title: options.session.title ?? undefined,
+        },
+      });
+    },
+
+    async resume(options: AgentStartOptions): Promise<void> {
+      options.onStatusChange("initializing");
+      const unlisten = await wireDriverEvents(id, options.session.id, options);
+      listeners.set(options.session.id, unlisten);
+      await sendSidecarMessage({
+        type: "driver:resume",
+        payload: {
+          driverId: id,
+          sessionId: options.session.id,
+          projectId: options.session.projectId,
+          projectRoot: options.projectRoot,
+          mcpServers: options.mcpServers,
+          externalId: options.session.externalId ?? "",
+          title: options.session.title ?? undefined,
+        },
+      });
+    },
+
+    async stop(sessionId: string): Promise<void> {
+      await sendSidecarMessage({
+        type: "driver:stop",
+        payload: { driverId: id, sessionId },
+      });
+      listeners.get(sessionId)?.();
+      listeners.delete(sessionId);
+    },
+
+    async send(sessionId: string, prompt: string): Promise<void> {
+      await sendSidecarMessage({
+        type: "driver:send",
+        payload: { driverId: id, sessionId, prompt },
+      });
+    },
+
+    async abort(sessionId: string): Promise<void> {
+      await sendSidecarMessage({
+        type: "driver:abort",
+        payload: { driverId: id, sessionId },
+      });
+    },
+  };
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Return the frontend IPC proxy for a given driver id.
+ * Builtin drivers (opencode, claude) get their dedicated proxy.
+ * Any other id gets a generic proxy — no error thrown.
+ */
+export function getDriverProxy(id: string): AgentDriver {
+  return proxies[id] ?? createGenericProxy(id);
 }
