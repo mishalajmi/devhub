@@ -53,12 +53,24 @@ type ConfigDraft =
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RESOURCE_TYPES: { value: ResourceType; label: string; icon: React.ReactNode }[] = [
+const RESOURCE_TYPES: {
+  value: ResourceType;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
   { value: "docker", label: "Docker", icon: <Container className="h-4 w-4" /> },
   { value: "service", label: "Service", icon: <Server className="h-4 w-4" /> },
-  { value: "database", label: "Database", icon: <Database className="h-4 w-4" /> },
+  {
+    value: "database",
+    label: "Database",
+    icon: <Database className="h-4 w-4" />,
+  },
   { value: "cloud", label: "Cloud", icon: <Cloud className="h-4 w-4" /> },
-  { value: "env", label: "Env / Secret", icon: <KeyRound className="h-4 w-4" /> },
+  {
+    value: "env",
+    label: "Env / Secret",
+    icon: <KeyRound className="h-4 w-4" />,
+  },
 ];
 
 // ─── Field helpers ────────────────────────────────────────────────────────────
@@ -69,11 +81,17 @@ function fieldCls(error?: boolean) {
     "placeholder:text-muted-foreground",
     "focus:outline-none focus:ring-1 focus:ring-ring",
     "disabled:opacity-50",
-    error ? "border-destructive" : "border-border"
+    error ? "border-destructive" : "border-border",
   );
 }
 
-function Label({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+function Label({
+  htmlFor,
+  children,
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label htmlFor={htmlFor} className="text-xs font-medium text-foreground">
       {children}
@@ -103,7 +121,9 @@ function DockerConfigForm({ value, onChange }: DockerFormProps) {
           className={fieldCls()}
           placeholder="my-app"
           value={value.containerName ?? ""}
-          onChange={(e) => onChange({ ...value, containerName: e.target.value })}
+          onChange={(e) =>
+            onChange({ ...value, containerName: e.target.value })
+          }
         />
       </Field>
       <Field>
@@ -141,7 +161,10 @@ function ServiceConfigForm({ value, onChange, portError }: ServiceFormProps) {
           placeholder="3000"
           value={value.port ?? ""}
           onChange={(e) =>
-            onChange({ ...value, port: e.target.value ? parseInt(e.target.value, 10) : undefined })
+            onChange({
+              ...value,
+              port: e.target.value ? parseInt(e.target.value, 10) : undefined,
+            })
           }
         />
         {portError && <p className="text-2xs text-destructive">{portError}</p>}
@@ -153,7 +176,10 @@ function ServiceConfigForm({ value, onChange, portError }: ServiceFormProps) {
           className={fieldCls()}
           value={value.protocol ?? "http"}
           onChange={(e) =>
-            onChange({ ...value, protocol: e.target.value as "http" | "https" | "tcp" })
+            onChange({
+              ...value,
+              protocol: e.target.value as "http" | "https" | "tcp",
+            })
           }
         >
           <option value="http">HTTP</option>
@@ -203,9 +229,13 @@ function DatabaseConfigForm({ value, onChange, connError }: DatabaseFormProps) {
           className={fieldCls(Boolean(connError))}
           placeholder="postgres://user:pass@localhost:5432/db"
           value={value.connectionString ?? ""}
-          onChange={(e) => onChange({ ...value, connectionString: e.target.value })}
+          onChange={(e) =>
+            onChange({ ...value, connectionString: e.target.value })
+          }
         />
-        <p className="text-2xs text-muted-foreground">Stored locally — never sent to agents.</p>
+        <p className="text-2xs text-muted-foreground">
+          Stored locally — never sent to agents.
+        </p>
         {connError && <p className="text-2xs text-destructive">{connError}</p>}
       </Field>
     </>
@@ -227,7 +257,10 @@ function CloudConfigForm({ value, onChange }: CloudFormProps) {
           className={fieldCls()}
           value={value.provider ?? "aws"}
           onChange={(e) =>
-            onChange({ ...value, provider: e.target.value as CloudResourceConfig["provider"] })
+            onChange({
+              ...value,
+              provider: e.target.value as CloudResourceConfig["provider"],
+            })
           }
         >
           <option value="aws">AWS</option>
@@ -293,7 +326,9 @@ function EnvConfigForm({ value, onChange, keyError }: EnvFormProps) {
           value={value.value ?? ""}
           onChange={(e) => onChange({ ...value, value: e.target.value })}
         />
-        <p className="text-2xs text-muted-foreground">Stored locally — displayed redacted.</p>
+        <p className="text-2xs text-muted-foreground">
+          Stored locally — displayed redacted.
+        </p>
       </Field>
     </>
   );
@@ -304,13 +339,26 @@ function EnvConfigForm({ value, onChange, keyError }: EnvFormProps) {
 function defaultDraft(type: ResourceType): ConfigDraft {
   switch (type) {
     case "docker":
-      return { containerName: "", image: "" } satisfies Partial<DockerResourceConfig>;
+      return {
+        containerName: "",
+        image: "",
+      } satisfies Partial<DockerResourceConfig>;
     case "service":
-      return { port: 3000, protocol: "http" } satisfies Partial<ServiceResourceConfig>;
+      return {
+        port: 3000,
+        protocol: "http",
+      } satisfies Partial<ServiceResourceConfig>;
     case "database":
-      return { connectionString: "", dbType: "postgres" } satisfies Partial<DatabaseResourceConfig>;
+      return {
+        connectionString: "",
+        dbType: "postgres",
+      } satisfies Partial<DatabaseResourceConfig>;
     case "cloud":
-      return { provider: "aws", region: "", resourceType: "" } satisfies Partial<CloudResourceConfig>;
+      return {
+        provider: "aws",
+        region: "",
+        resourceType: "",
+      } satisfies Partial<CloudResourceConfig>;
     case "env":
       return { key: "", value: "" } satisfies Partial<EnvResourceConfig>;
   }
@@ -340,7 +388,7 @@ interface ValidationErrors {
 function validate(
   name: string,
   type: ResourceType,
-  draft: ConfigDraft
+  draft: ConfigDraft,
 ): ValidationErrors {
   const errors: ValidationErrors = {};
   if (!name.trim()) {
@@ -378,13 +426,13 @@ export function AddResourceDialog({
   const isEdit = Boolean(editTarget);
 
   const [selectedType, setSelectedType] = React.useState<ResourceType>(
-    editTarget?.resourceType ?? "docker"
+    editTarget?.resourceType ?? "docker",
   );
   const [name, setName] = React.useState(editTarget?.name ?? "");
   const [draft, setDraft] = React.useState<ConfigDraft>(
     editTarget
       ? parseDraft(editTarget.resourceType, editTarget.configJson)
-      : defaultDraft("docker")
+      : defaultDraft("docker"),
   );
   const [errors, setErrors] = React.useState<ValidationErrors>({});
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -399,7 +447,9 @@ export function AddResourceDialog({
       setSelectedType(type);
       setName(editTarget?.name ?? "");
       setDraft(
-        editTarget ? parseDraft(editTarget.resourceType, editTarget.configJson) : defaultDraft(type)
+        editTarget
+          ? parseDraft(editTarget.resourceType, editTarget.configJson)
+          : defaultDraft(type),
       );
       setErrors({});
       setSubmitError(null);
@@ -445,7 +495,9 @@ export function AddResourceDialog({
     } catch (err: unknown) {
       const msg = String(err);
       setSubmitError(msg);
-      logger.error("AddResourceDialog", "Failed to save resource", { error: msg });
+      logger.error("AddResourceDialog", "Failed to save resource", {
+        error: msg,
+      });
     }
   };
 
@@ -501,8 +553,8 @@ export function AddResourceDialog({
         <DialogPrimitive.Content
           className={cn(
             "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
-            "w-[460px] rounded-lg border border-border bg-card shadow-xl",
-            "data-[state=open]:animate-fade-in"
+            "w-115 rounded-lg border border-border bg-card shadow-xl",
+            "data-[state=open]:animate-fade-in",
           )}
         >
           {/* Header */}
@@ -511,14 +563,22 @@ export function AddResourceDialog({
               {isEdit ? "Edit Resource" : "Add Resource"}
             </DialogPrimitive.Title>
             <DialogPrimitive.Close asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isPending}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                disabled={isPending}
+              >
                 <X className="h-3.5 w-3.5" />
               </Button>
             </DialogPrimitive.Close>
           </div>
 
           {/* Body */}
-          <form onSubmit={handleSubmit} className="px-5 py-4 flex flex-col gap-4">
+          <form
+            onSubmit={handleSubmit}
+            className="px-5 py-4 flex flex-col gap-4"
+          >
             {/* Type selector — only shown in create mode */}
             {!isEdit && (
               <Field>
@@ -533,7 +593,7 @@ export function AddResourceDialog({
                         "flex flex-col items-center gap-1 rounded border px-2 py-2 text-2xs font-medium transition-colors",
                         selectedType === value
                           ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                          : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground",
                       )}
                     >
                       {icon}
@@ -555,11 +615,14 @@ export function AddResourceDialog({
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
-                  if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                  if (errors.name)
+                    setErrors((prev) => ({ ...prev, name: undefined }));
                 }}
                 disabled={isPending}
               />
-              {errors.name && <p className="text-2xs text-destructive">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-2xs text-destructive">{errors.name}</p>
+              )}
             </Field>
 
             {/* Per-type config fields */}

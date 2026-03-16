@@ -1,9 +1,21 @@
 import * as React from "react";
-import { FolderOpen, Plus, Settings, Bot, Layers, GitBranch, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  Plus,
+  Settings,
+  Bot,
+  Layers,
+  GitBranch,
+  Trash2,
+} from "lucide-react";
 import { cn, truncatePath } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useProjectsStore } from "@/stores/projects.store";
 import type { Project } from "@devhub/types";
 
@@ -13,7 +25,11 @@ interface SidebarProps {
   onDeleteProject: (project: Project) => void;
 }
 
-export function Sidebar({ onAddProject, onOpenSettings, onDeleteProject }: SidebarProps) {
+export function Sidebar({
+  onAddProject,
+  onOpenSettings,
+  onDeleteProject,
+}: SidebarProps) {
   const { projects, selectedProjectId, selectProject } = useProjectsStore();
 
   return (
@@ -22,7 +38,9 @@ export function Sidebar({ onAddProject, onOpenSettings, onDeleteProject }: Sideb
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-sm text-foreground tracking-tight">DevHub</span>
+          <span className="font-semibold text-sm text-foreground tracking-tight">
+            DevHub
+          </span>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -45,7 +63,12 @@ export function Sidebar({ onAddProject, onOpenSettings, onDeleteProject }: Sideb
           <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
             <FolderOpen className="h-8 w-8 text-muted-foreground/40" />
             <p className="text-xs text-muted-foreground">No projects yet</p>
-            <Button variant="ghost" size="sm" onClick={onAddProject} className="text-xs h-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddProject}
+              className="text-xs h-6"
+            >
               Add one
             </Button>
           </div>
@@ -94,7 +117,12 @@ interface ProjectItemProps {
   onDelete: () => void;
 }
 
-function ProjectItem({ project, isSelected, onSelect, onDelete }: ProjectItemProps) {
+function ProjectItem({
+  project,
+  isSelected,
+  onSelect,
+  onDelete,
+}: ProjectItemProps) {
   const [hovered, setHovered] = React.useState(false);
 
   return (
@@ -102,20 +130,21 @@ function ProjectItem({ project, isSelected, onSelect, onDelete }: ProjectItemPro
       <div
         className={cn(
           "relative w-full rounded transition-colors group",
-          isSelected ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          isSelected
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
         )}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <button
-          onClick={onSelect}
-          className="w-full text-left px-2 py-1.5"
-        >
+        <button onClick={onSelect} className="w-full text-left px-2 py-1.5">
           <div className="flex items-center gap-2">
             <FolderOpen
               className={cn(
                 "h-3.5 w-3.5 shrink-0",
-                isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                isSelected
+                  ? "text-primary"
+                  : "text-muted-foreground group-hover:text-foreground",
               )}
             />
             <div className="min-w-0 pr-5">
@@ -129,7 +158,7 @@ function ProjectItem({ project, isSelected, onSelect, onDelete }: ProjectItemPro
           {/* Indicator badges */}
           <div className="flex flex-wrap items-center gap-1 mt-1 ml-5">
             {project.gitBranch && (
-              <span className="inline-flex items-center gap-0.5 text-2xs text-primary/70 truncate max-w-[100px]">
+              <span className="inline-flex items-center gap-0.5 text-2xs text-primary/70 truncate max-w-25">
                 <GitBranch className="h-2.5 w-2.5 shrink-0" />
                 <span className="truncate">{project.gitBranch}</span>
               </span>
@@ -138,7 +167,9 @@ function ProjectItem({ project, isSelected, onSelect, onDelete }: ProjectItemPro
               <span className="text-2xs text-muted-foreground/60">docker</span>
             )}
             {project.hasDockerCompose && project.gitBranch && (
-              <span className="text-2xs text-muted-foreground/60">· docker</span>
+              <span className="text-2xs text-muted-foreground/60">
+                · docker
+              </span>
             )}
             {project.hasEnvFile && (
               <span className="text-2xs text-muted-foreground/60">· .env</span>
@@ -159,7 +190,7 @@ function ProjectItem({ project, isSelected, onSelect, onDelete }: ProjectItemPro
                   "absolute right-1 top-1/2 -translate-y-1/2",
                   "flex items-center justify-center h-5 w-5 rounded",
                   "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
-                  "transition-colors"
+                  "transition-colors",
                 )}
               >
                 <Trash2 className="h-3 w-3" />

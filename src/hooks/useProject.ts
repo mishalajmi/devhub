@@ -14,12 +14,17 @@ import {
   deleteResource,
 } from "@/lib/tauri";
 import type { AgentSession } from "@devhub/types";
-import type { ProjectResource, CreateResourceInput, UpdateResourceInput } from "@devhub/types";
+import type {
+  ProjectResource,
+  CreateResourceInput,
+  UpdateResourceInput,
+} from "@devhub/types";
 import type { McpServer } from "@devhub/types";
 import type { Skill } from "@devhub/types";
 import { useProjectsStore } from "@/stores/projects.store";
 import { logger } from "@/lib/logger";
 import type { CreateProjectInput, FolderScanResult } from "@devhub/types";
+import { useEffect } from "react";
 
 /** Query key factory for project-scoped data */
 export const projectKeys = {
@@ -72,14 +77,18 @@ export function useSkillsQuery(projectId: string) {
 export function useProjects() {
   const setProjects = useProjectsStore((s) => s.setProjects);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: projectKeys.all,
-    queryFn: async () => {
-      const projects = await listProjects();
-      setProjects(projects);
-      return projects;
-    },
+    queryFn: () => listProjects(),
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setProjects(query.data);
+    }
+  }, [query.data, setProjects]);
+
+  return query;
 }
 
 /** Mutation: create a project; invalidates the project list on success. */
@@ -131,11 +140,15 @@ export function useCreateResource(projectId: string) {
   return useMutation({
     mutationFn: (input: CreateResourceInput) => createResource(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.resources(projectId),
+      });
       logger.info("useCreateResource", "Resource created", { projectId });
     },
     onError: (err: unknown) => {
-      logger.error("useCreateResource", "Failed to create resource", { error: String(err) });
+      logger.error("useCreateResource", "Failed to create resource", {
+        error: String(err),
+      });
     },
   });
 }
@@ -147,11 +160,15 @@ export function useUpdateResource(projectId: string) {
   return useMutation({
     mutationFn: (input: UpdateResourceInput) => updateResource(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.resources(projectId),
+      });
       logger.info("useUpdateResource", "Resource updated", { projectId });
     },
     onError: (err: unknown) => {
-      logger.error("useUpdateResource", "Failed to update resource", { error: String(err) });
+      logger.error("useUpdateResource", "Failed to update resource", {
+        error: String(err),
+      });
     },
   });
 }
@@ -163,11 +180,15 @@ export function useDeleteResource(projectId: string) {
   return useMutation({
     mutationFn: (id: string) => deleteResource(id),
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.resources(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.resources(projectId),
+      });
       logger.info("useDeleteResource", "Resource deleted", { id, projectId });
     },
     onError: (err: unknown) => {
-      logger.error("useDeleteResource", "Failed to delete resource", { error: String(err) });
+      logger.error("useDeleteResource", "Failed to delete resource", {
+        error: String(err),
+      });
     },
   });
 }

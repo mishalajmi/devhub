@@ -1,11 +1,13 @@
 import { create } from "zustand";
-import type { AgentSession, OpenCodeInstance } from "@devhub/types";
+import type { AgentSession, AgentMessage, OpenCodeInstance } from "@devhub/types";
 
 interface AgentsState {
   /** All sessions keyed by project ID */
   sessionsByProject: Record<string, AgentSession[]>;
   /** Currently active/focused session ID */
   activeSessionId: string | null;
+  /** Streamed messages keyed by session ID */
+  messagesBySession: Record<string, AgentMessage[]>;
   /** Discovered OpenCode instances keyed by project ID */
   instancesByProject: Record<string, OpenCodeInstance[]>;
 
@@ -14,12 +16,15 @@ interface AgentsState {
   updateSession: (updated: AgentSession) => void;
   removeSession: (id: string, projectId: string) => void;
   setActiveSession: (id: string | null) => void;
+  addMessage: (sessionId: string, msg: AgentMessage) => void;
+  clearMessages: (sessionId: string) => void;
   setInstances: (projectId: string, instances: OpenCodeInstance[]) => void;
 }
 
 export const useAgentsStore = create<AgentsState>((set) => ({
   sessionsByProject: {},
   activeSessionId: null,
+  messagesBySession: {},
   instancesByProject: {},
 
   setSessions: (projectId, sessions) =>
@@ -63,6 +68,23 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }),
 
   setActiveSession: (id) => set({ activeSessionId: id }),
+
+  addMessage: (sessionId, msg) =>
+    set((state) => {
+      const existing = state.messagesBySession[sessionId] ?? [];
+      return {
+        messagesBySession: {
+          ...state.messagesBySession,
+          [sessionId]: [...existing, msg],
+        },
+      };
+    }),
+
+  clearMessages: (sessionId) =>
+    set((state) => {
+      const { [sessionId]: _, ...rest } = state.messagesBySession;
+      return { messagesBySession: rest };
+    }),
 
   setInstances: (projectId, instances) =>
     set((state) => ({
